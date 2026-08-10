@@ -1,4 +1,5 @@
 import { createProgram } from './shaderProgram'
+import type { ShaderModule, UniformValue } from '../shaders/types'
 
 // Single oversized triangle covering the viewport — no vertex buffer needed,
 // gl_VertexID picks the corner. Standard fullscreen-quad-without-a-quad trick.
@@ -17,7 +18,6 @@ void main() {
 `
 
 // Shown before an image is uploaded — proves the render pipeline works.
-// Real shaders (SPEC.md §4.1 ShaderModule contract) arrive in a later issue.
 const PLACEHOLDER_FRAGMENT_SOURCE = `#version 300 es
 precision highp float;
 in vec2 vUv;
@@ -27,19 +27,23 @@ void main() {
 }
 `
 
-// Identity passthrough (no shader treatment) with cover-fit pan/zoom applied
-// via uRatio/uPan — see src/fit.ts for the math. uRatio=1,uPan=0 is a plain
-// stretch (identity), the same behavior as before cover-fit existed.
-const IMAGE_FRAGMENT_SOURCE = `#version 300 es
+// Prepended to every ShaderModule's fragSource (SPEC.md §4.1). Gives shader
+// modules vUv (canvas-space UV, before cover-fit), the cover-fit transform
+// via sampleImage(), and uCanvasAspect for square-cell math — so a module's
+// fragSource is just its own uniforms + main(), nothing about the render
+// harness itself.
+const PREAMBLE = `#version 300 es
 precision highp float;
 in vec2 vUv;
 uniform sampler2D uImage;
 uniform vec2 uRatio;
 uniform vec2 uPan;
+uniform float uCanvasAspect;
 out vec4 fragColor;
-void main() {
-  vec2 texUv = vec2(0.5) + (vUv - vec2(0.5)) * uRatio - uPan;
-  fragColor = texture(uImage, texUv);
+
+vec4 sampleImage(vec2 canvasUv) {
+  vec2 texUv = vec2(0.5) + (canvasUv - vec2(0.5)) * uRatio - uPan;
+  return texture(uImage, texUv);
 }
 `
 
@@ -52,20 +56,81 @@ export interface RenderTransform {
 
 const IDENTITY_TRANSFORM: RenderTransform = { ratioX: 1, ratioY: 1, panX: 0, panY: 0 }
 
+function uniformGlslName(key: string): string {
+  return `u${key[0].toUpperCase()}${key.slice(1)}`
+}
+
+interface CompiledShader {
+  program: WebGLProgram
+  uImage: WebGLUniformLocation | null
+  uRatio: WebGLUniformLocation | null
+  uPan: WebGLUniformLocation | null
+  uCanvasAspect: WebGLUniformLocation | null
+  paramLocations: Map<string, WebGLUniformLocation | null>
+}
+
+function compileShaderModule(gl: WebGL2RenderingContext, module: ShaderModule): CompiledShader {
+  // Multi-pass (Riso, passes 2|3) isn't wired up yet — a deliberate
+  // architecture extension for later, per SPEC.md §4.2's build-order note.
+  const fragBody = Array.isArray(module.fragSource) ? module.fragSource[0] : module.fragSource
+  const program = createProgram(gl, VERTEX_SOURCE, PREAMBLE + fragBody)
+  const paramLocations = new Map(
+    module.uniformSchema.map((def) => [def.key, gl.getUniformLocation(program, uniformGlslName(def.key))]),
+  )
+  return {
+    program,
+    uImage: gl.getUniformLocation(program, 'uImage'),
+    uRatio: gl.getUniformLocation(program, 'uRatio'),
+    uPan: gl.getUniformLocation(program, 'uPan'),
+    uCanvasAspect: gl.getUniformLocation(program, 'uCanvasAspect'),
+    paramLocations,
+  }
+}
+
+function setParam(
+  gl: WebGL2RenderingContext,
+  location: WebGLUniformLocation | null,
+  def: ShaderModule['uniformSchema'][number],
+  value: UniformValue,
+) {
+  if (!location) return
+  switch (def.type) {
+    case 'float':
+      gl.uniform1f(location, Number(value))
+      break
+    case 'int':
+      gl.uniform1i(location, Math.round(Number(value)))
+      break
+    case 'bool':
+      gl.uniform1i(location, value ? 1 : 0)
+      break
+    case 'enum': {
+      const index = def.options?.indexOf(String(value)) ?? -1
+      gl.uniform1i(location, Math.max(0, index))
+      break
+    }
+    case 'color':
+      // Brand palette values are still TBD (SPEC.md §9) — nothing to upload
+      // yet. No shader currently declares a color uniform.
+      break
+  }
+}
+
 export interface Renderer {
-  render: (transform?: RenderTransform) => void
+  render: (options?: {
+    shader: ShaderModule
+    values: Record<string, UniformValue>
+    transform?: RenderTransform
+  }) => void
   setImage: (source: TexImageSource) => void
 }
 
-export function createRenderer(canvas: HTMLCanvasElement): Renderer {
+export function createRenderer(canvas: HTMLCanvasElement, shaderModules: ShaderModule[]): Renderer {
   const gl = canvas.getContext('webgl2')
   if (!gl) throw new Error('WebGL2 is not supported in this browser')
 
   const placeholderProgram = createProgram(gl, VERTEX_SOURCE, PLACEHOLDER_FRAGMENT_SOURCE)
-  const imageProgram = createProgram(gl, VERTEX_SOURCE, IMAGE_FRAGMENT_SOURCE)
-  const imageUniformLocation = gl.getUniformLocation(imageProgram, 'uImage')
-  const ratioUniformLocation = gl.getUniformLocation(imageProgram, 'uRatio')
-  const panUniformLocation = gl.getUniformLocation(imageProgram, 'uPan')
+  const compiled = new Map(shaderModules.map((module) => [module.id, compileShaderModule(gl, module)]))
 
   const vao = gl.createVertexArray()
   const texture = gl.createTexture()
@@ -87,20 +152,29 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     hasImage = true
   }
 
-  const render = (transform: RenderTransform = IDENTITY_TRANSFORM) => {
+  const render: Renderer['render'] = (options) => {
     // SPEC.md §2.2 — canvas renders at true export dimensions, always.
     // The viewport always matches canvas.width/height exactly; there is no
     // separate preview-resolution render path.
     gl.viewport(0, 0, canvas.width, canvas.height)
     gl.bindVertexArray(vao)
 
-    if (hasImage) {
-      gl.useProgram(imageProgram)
+    if (hasImage && options) {
+      const shaderProgram = compiled.get(options.shader.id)
+      if (!shaderProgram) throw new Error(`Unknown shader id: ${options.shader.id}`)
+      const transform = options.transform ?? IDENTITY_TRANSFORM
+
+      gl.useProgram(shaderProgram.program)
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.uniform1i(imageUniformLocation, 0)
-      gl.uniform2f(ratioUniformLocation, transform.ratioX, transform.ratioY)
-      gl.uniform2f(panUniformLocation, transform.panX, transform.panY)
+      gl.uniform1i(shaderProgram.uImage, 0)
+      gl.uniform2f(shaderProgram.uRatio, transform.ratioX, transform.ratioY)
+      gl.uniform2f(shaderProgram.uPan, transform.panX, transform.panY)
+      gl.uniform1f(shaderProgram.uCanvasAspect, canvas.width / canvas.height)
+
+      for (const def of options.shader.uniformSchema) {
+        setParam(gl, shaderProgram.paramLocations.get(def.key) ?? null, def, options.values[def.key])
+      }
     } else {
       gl.useProgram(placeholderProgram)
     }

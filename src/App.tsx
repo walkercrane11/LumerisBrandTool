@@ -8,6 +8,8 @@ import {
 import { CANVAS_SIZES } from './canvasSizes'
 import { useCanvasRenderer } from './useCanvasRenderer'
 import { DEFAULT_FIT, clampFit, coverRatios, type FitState, type Size } from './fit'
+import { SHADER_MODULES, defaultUniformValues, type ShaderModule, type UniformValue } from './shaders'
+import { ShaderControls } from './ShaderControls'
 
 interface DragOrigin {
   startX: number
@@ -23,12 +25,24 @@ function App() {
   const [imageSize, setImageSize] = useState<Size | null>(null)
   const [fit, setFit] = useState<FitState>(DEFAULT_FIT)
 
+  const [shader, setShader] = useState<ShaderModule>(SHADER_MODULES[0])
+  const [shaderValues, setShaderValues] = useState<Record<string, UniformValue>>(() =>
+    defaultUniformValues(SHADER_MODULES[0]),
+  )
+
   // SPEC.md §3.2 — fit survives a canvas-size change by re-clamping, not
   // resetting. Clamping is a pure function of (fit, imageSize, size), so it's
   // derived on every render rather than synced back into state via an effect.
   const clampedFit = imageSize ? clampFit(fit, imageSize, size) : fit
 
-  const { setImage } = useCanvasRenderer(canvasRef, size, imageSize, clampedFit)
+  const { setImage } = useCanvasRenderer(
+    canvasRef,
+    size,
+    imageSize,
+    clampedFit,
+    shader,
+    shaderValues,
+  )
 
   const loadFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return
@@ -102,6 +116,16 @@ function App() {
     setFit({ ...clampedFit, zoom: Number(e.target.value) })
   }
 
+  const handleShaderChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const nextShader = SHADER_MODULES.find((s) => s.id === e.target.value) ?? SHADER_MODULES[0]
+    setShader(nextShader)
+    setShaderValues(defaultUniformValues(nextShader))
+  }
+
+  const handleParamChange = (key: string, value: UniformValue) => {
+    setShaderValues((prev) => ({ ...prev, [key]: value }))
+  }
+
   return (
     <div className="app">
       <header className="toolbar">
@@ -132,7 +156,18 @@ function App() {
             onChange={handleZoomChange}
           />
         </label>
+        <label className="shader-select">
+          Shader
+          <select value={shader.id} onChange={handleShaderChange}>
+            {SHADER_MODULES.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </header>
+      <ShaderControls schema={shader.uniformSchema} values={shaderValues} onChange={handleParamChange} />
       <main className="canvas-stage" onDrop={handleDrop} onDragOver={handleDragOver}>
         <canvas
           ref={canvasRef}

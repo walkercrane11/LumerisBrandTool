@@ -2,12 +2,15 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { createRenderer, type Renderer } from './gl/renderer'
 import type { CanvasSize } from './canvasSizes'
 import { computeTransform, type FitState, type Size } from './fit'
+import { SHADER_MODULES, type ShaderModule, type UniformValue } from './shaders'
 
 export function useCanvasRenderer(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   size: CanvasSize,
   imageSize: Size | null,
   fit: FitState,
+  shader: ShaderModule,
+  shaderValues: Record<string, UniformValue>,
 ) {
   const rendererRef = useRef<Renderer | null>(null)
 
@@ -16,7 +19,7 @@ export function useCanvasRenderer(
     if (!canvas) return
 
     if (!rendererRef.current) {
-      rendererRef.current = createRenderer(canvas)
+      rendererRef.current = createRenderer(canvas, SHADER_MODULES)
     }
 
     // SPEC.md §2.2 — canvas element dimensions ARE the export dimensions.
@@ -26,8 +29,10 @@ export function useCanvasRenderer(
     canvas.height = size.height
 
     const transform = imageSize ? computeTransform(imageSize, size, fit) : undefined
-    rendererRef.current.render(transform)
-  }, [canvasRef, size, imageSize, fit])
+    rendererRef.current.render(
+      imageSize ? { shader, values: shaderValues, transform } : undefined,
+    )
+  }, [canvasRef, size, imageSize, fit, shader, shaderValues])
 
   const setImage = (source: TexImageSource) => {
     // Uploads to the GPU only. The caller updates imageSize/fit state right
