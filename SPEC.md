@@ -133,7 +133,14 @@ The UI is generated from `uniformSchema`. Adding a seventh shader should require
 **Cell-based (sample a grid region, stamp from an atlas texture):**
 
 - **ASCII** — samples cell luminance, indexes into a glyph atlas. Params: cells across, glyph set, fg/bg, gamma, invert, **contrast** (added after #17's initial build — Walker's feedback: the grid read too loose and the tonal range too flat; contrast stretches the luminance curve so the full glyph ramp, space to `@`, actually gets used). **Decided:** no T/O/M-specific character set — glyph set is standard ASCII characters (e.g. a luminance-ordered ramp like ` .:-=+*#%@`), built fresh rather than ported from prior work.
-- **Pattern fill** — same mechanism, shape atlas instead of glyphs. Params: cells across, shape set, rotation jitter, invert, fg/bg. **Build this immediately after ASCII** — it is the same atlas pipeline with a different texture, and doing them together avoids writing the sampling code twice.
+
+**Pattern fill — revised twice, not atlas-based.** Originally scoped as "same mechanism [as ASCII], shape atlas instead of glyphs," and #18 was first built that way (a square-size ramp stamped per cell via #17's atlas).
+
+*1st revision:* Walker reviewed `reference/pattern.png` and the actual target is different: discrete tonal bands, each filled with a categorically different procedural pattern (that comp uses checkerboard, dots, diagonal stripes, small squares, and solid, light to dark) — not one shape scaling continuously by size. Doesn't fit the atlas approach (patterns tile at their own frequency, independent of luminance-sampling resolution); confirmed with Walker these can be built procedurally in GLSL, no texture assets needed.
+
+*2nd revision:* two more notes from Walker after seeing the 1st pass. (a) **Strict grid** — band assignment now samples luminance once per cell (mosaic-style, like Halftone/Dither/ASCII), not per-pixel; band edges are blocky/grid-aligned, not following the photo's smooth contours. (b) **Pattern and color both drive the value scale** — each band now has its own bg/fg color pair (10 colors total), not one shared fg/bg, closer to the reference comp's actual richness (~2 colors per tonal region). Two coordinate grids now: the strict `cellsAcross` grid for band assignment, and a finer subdivision (4x) purely for each pattern's own texture, so a band's cell shows several repeats of its pattern rather than at most one shape.
+
+Params: cells across, contrast, rotation angle (a uniform rotation of the whole pattern coordinate space, not true per-cell jitter — randomly rotating a tiling pattern per-cell breaks it into visible seams), invert, and 10 band colors (bg+fg × 5 bands). The specific 5 patterns, their order, and the placeholder color palette are this build's choices, not a spec mandate — treat `reference/pattern.png` as directional, not pixel-prescriptive. Real band colors are still TBD pending the brand palette (§9).
 
 **Multi-pass:**
 
@@ -274,7 +281,7 @@ Image upload → texture → crop/fit → single per-pixel shader → canvas at 
 
 ### Phase 2 — Shader modules
 
-Pixelated, Dither, Halftone against the module contract. Then ASCII and Pattern fill on the shared atlas path. Then Riso, with multi-pass.
+Pixelated, Dither, Halftone against the module contract. Then ASCII (atlas-based) and Pattern fill (revised to procedural tonal bands — see §4.2, not atlas-based after all). Then Riso, with multi-pass.
 
 **Done when:** all six render correctly at all five canvas sizes, UI is generated entirely from `uniformSchema`, and adding a shader requires touching no UI code.
 

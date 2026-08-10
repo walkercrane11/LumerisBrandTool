@@ -1,0 +1,175 @@
+import type { ShaderModule } from './types'
+
+// SPEC.md §4.2 — "same mechanism, shape atlas instead of glyphs." Revised
+// twice after review against reference/pattern.png (Walker, 2026-08-10):
+//
+// 1st revision: discrete tonal bands, each filled with a categorically
+// DIFFERENT pattern (checkerboard, dots, diagonal stripes, small squares,
+// solid), light to dark — not one shape scaling continuously by size.
+// Dropped the #17 atlas approach (these patterns tile at their own
+// frequency, independent of luminance-sampling resolution) in favor of
+// procedural GLSL — no texture assets needed.
+//
+// 2nd revision (this one) — two more notes from Walker on the 1st pass:
+// - "strict grid": band assignment now samples luminance once per cell
+//   (mosaic-style, like Halftone/Dither/ASCII), not per-pixel. Band edges
+//   are blocky/grid-aligned now, not following the photo's smooth contours.
+// - "pattern AND color drive the value scale": each band gets its own
+//   bg/fg color pair (10 colors total) instead of one shared fg/bg —
+//   closer to the reference comp's actual richness (it uses roughly two
+//   colors per tonal region, not one accent color throughout).
+export const patternFillShader: ShaderModule = {
+  id: 'pattern-fill',
+  label: 'Pattern fill',
+  passes: 1,
+  uniformSchema: [
+    {
+      key: 'cellsAcross',
+      label: 'Grid cells across',
+      type: 'float',
+      unit: 'cellsAcross',
+      min: 8,
+      max: 80,
+      step: 1,
+      default: 25,
+    },
+    {
+      key: 'contrast',
+      label: 'Contrast',
+      type: 'float',
+      min: 0.5,
+      max: 3,
+      step: 0.05,
+      default: 1.4,
+    },
+    {
+      key: 'rotationJitter',
+      label: 'Pattern angle',
+      type: 'float',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0,
+    },
+    {
+      key: 'invert',
+      label: 'Invert',
+      type: 'bool',
+      default: false,
+    },
+    // Lightest to darkest band. Placeholder palette loosely evoking
+    // reference/pattern.png's colors — not brand-accurate, that's still
+    // TBD from Holden Ellis (SPEC.md §9).
+    { key: 'band1Bg', label: 'Band 1 (checker) bg', type: 'color', default: '#f4f1ea' },
+    { key: 'band1Fg', label: 'Band 1 (checker) fg', type: 'color', default: '#e8b94a' },
+    { key: 'band2Bg', label: 'Band 2 (dots) bg', type: 'color', default: '#c9a648' },
+    { key: 'band2Fg', label: 'Band 2 (dots) fg', type: 'color', default: '#d64545' },
+    { key: 'band3Bg', label: 'Band 3 (stripes) bg', type: 'color', default: '#8b7fd6' },
+    { key: 'band3Fg', label: 'Band 3 (stripes) fg', type: 'color', default: '#4fa8d8' },
+    { key: 'band4Bg', label: 'Band 4 (squares) bg', type: 'color', default: '#4a5a68' },
+    { key: 'band4Fg', label: 'Band 4 (squares) fg', type: 'color', default: '#1f2b33' },
+    { key: 'band5Bg', label: 'Band 5 (solid) bg', type: 'color', default: '#2b0a08' },
+    { key: 'band5Fg', label: 'Band 5 (solid) fg', type: 'color', default: '#000000' },
+  ],
+  // Two coordinate grids, both canvas-relative per §3.3:
+  // - cellCoord (cellsAcross resolution): the STRICT grid. One luminance
+  //   sample and one band decision per cell — the whole cell renders
+  //   uniformly, mosaic-style.
+  // - patternCoord (cellsAcross * PATTERN_SUBDIV): finer, purely for the
+  //   pattern's own texture, so each band cell shows several repeats of
+  //   its pattern (a mini checkerboard, a few dots, etc.) rather than at
+  //   most one shape per cell.
+  //
+  // rotationJitter rotates patternCoord by a fixed angle (not a per-cell
+  // random jitter) — randomly rotating a tiling pattern per-cell breaks it
+  // into visible seams, so this is a uniform "pattern angle" instead.
+  fragSource: `
+uniform float uCellsAcross;
+uniform float uContrast;
+uniform float uRotationJitter;
+uniform bool uInvert;
+uniform vec3 uBand1Bg;
+uniform vec3 uBand1Fg;
+uniform vec3 uBand2Bg;
+uniform vec3 uBand2Fg;
+uniform vec3 uBand3Bg;
+uniform vec3 uBand3Fg;
+uniform vec3 uBand4Bg;
+uniform vec3 uBand4Fg;
+uniform vec3 uBand5Bg;
+uniform vec3 uBand5Fg;
+
+const float BANDS = 5.0;
+const float PATTERN_SUBDIV = 4.0;
+
+float checkerPattern(vec2 p) {
+  vec2 cell = floor(p);
+  return mod(cell.x + cell.y, 2.0);
+}
+
+float dotsPattern(vec2 p) {
+  vec2 local = fract(p) - 0.5;
+  return 1.0 - smoothstep(0.15, 0.22, length(local));
+}
+
+float stripesPattern(vec2 p) {
+  float diag = p.x + p.y;
+  return step(0.5, fract(diag));
+}
+
+float smallSquaresPattern(vec2 p) {
+  vec2 local = fract(p * 2.0) - 0.5;
+  vec2 d = abs(local);
+  return 1.0 - step(0.32, max(d.x, d.y));
+}
+
+void main() {
+  vec2 cellSize = vec2(1.0 / uCellsAcross, uCanvasAspect / uCellsAcross);
+  vec2 cellCoord = floor(vUv / cellSize);
+  vec2 cellCenter = (cellCoord + 0.5) * cellSize;
+
+  // Strict grid: one luminance sample, one band, per cell.
+  vec4 sampled = sampleImage(cellCenter);
+  float luminance = dot(sampled.rgb, vec3(0.2126, 0.7152, 0.0722));
+  luminance = clamp((luminance - 0.5) * uContrast + 0.5, 0.0, 1.0);
+
+  float density = 1.0 - luminance;
+  if (uInvert) density = 1.0 - density;
+
+  float band = min(floor(density * BANDS), BANDS - 1.0);
+
+  vec2 patternRaw = (vUv / cellSize) * PATTERN_SUBDIV;
+  float angle = uRotationJitter * radians(45.0);
+  float ca = cos(angle);
+  float sa = sin(angle);
+  vec2 p = mat2(ca, sa, -sa, ca) * patternRaw;
+
+  float coverage;
+  vec3 bandBg;
+  vec3 bandFg;
+  if (band < 0.5) {
+    coverage = checkerPattern(p);
+    bandBg = uBand1Bg;
+    bandFg = uBand1Fg;
+  } else if (band < 1.5) {
+    coverage = dotsPattern(p);
+    bandBg = uBand2Bg;
+    bandFg = uBand2Fg;
+  } else if (band < 2.5) {
+    coverage = stripesPattern(p);
+    bandBg = uBand3Bg;
+    bandFg = uBand3Fg;
+  } else if (band < 3.5) {
+    coverage = smallSquaresPattern(p);
+    bandBg = uBand4Bg;
+    bandFg = uBand4Fg;
+  } else {
+    coverage = 1.0;
+    bandBg = uBand5Bg;
+    bandFg = uBand5Fg;
+  }
+
+  fragColor = vec4(mix(bandBg, bandFg, coverage), sampled.a);
+}
+`,
+}
