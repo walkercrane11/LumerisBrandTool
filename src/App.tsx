@@ -10,6 +10,7 @@ import { useCanvasRenderer } from './useCanvasRenderer'
 import { DEFAULT_FIT, clampFit, coverRatios, type FitState, type Size } from './fit'
 import { SHADER_MODULES, defaultUniformValues, type ShaderModule, type UniformValue } from './shaders'
 import { ShaderControls } from './ShaderControls'
+import { exportFilename } from './exportFilename'
 
 interface DragOrigin {
   startX: number
@@ -35,7 +36,7 @@ function App() {
   // derived on every render rather than synced back into state via an effect.
   const clampedFit = imageSize ? clampFit(fit, imageSize, size) : fit
 
-  const { setImage } = useCanvasRenderer(
+  const { setImage, exportPng } = useCanvasRenderer(
     canvasRef,
     size,
     imageSize,
@@ -126,6 +127,21 @@ function App() {
     setShaderValues((prev) => ({ ...prev, [key]: value }))
   }
 
+  const handleExportPng = async () => {
+    try {
+      const blob = await exportPng()
+      const filename = exportFilename(size, shader, shaderValues, clampedFit, 'png')
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('PNG export failed', err)
+    }
+  }
+
   return (
     <div className="app">
       <header className="toolbar">
@@ -166,6 +182,9 @@ function App() {
             ))}
           </select>
         </label>
+        <button type="button" disabled={!imageSize} onClick={() => void handleExportPng()}>
+          Export PNG
+        </button>
       </header>
       <ShaderControls schema={shader.uniformSchema} values={shaderValues} onChange={handleParamChange} />
       <main className="canvas-stage" onDrop={handleDrop} onDragOver={handleDragOver}>
