@@ -92,8 +92,13 @@ void main() {
   float luminance = dot(sampled.rgb, vec3(0.2126, 0.7152, 0.0722));
   luminance = clamp((luminance - 0.5) * uContrast + 0.5, 0.0, 1.0);
 
-  // Darker source luminance -> bigger dot/thicker line.
-  float size = (1.0 - luminance) * 0.7;
+  // Darker source luminance -> bigger dot/thicker line. Capped so a circle
+  // never grows past the cell's edge midpoint (distance 0.5 from center) —
+  // beyond that, a circle SDF starts filling the cell's corners too (the
+  // corner is at distance 0.5*sqrt(2) =~ 0.707), and once the whole square
+  // corner-to-corner is inside the circle it reads as a cropped square, not
+  // a big circle. 0.44 + the 0.06 edge softness stays safely under 0.5.
+  float size = (1.0 - luminance) * 0.44;
   float edge = 0.06;
 
   float coverage;
