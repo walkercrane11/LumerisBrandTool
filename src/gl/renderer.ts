@@ -27,11 +27,13 @@ void main() {
 }
 `
 
-// Prepended to every ShaderModule's fragSource (SPEC.md §4.1). Gives shader
-// modules vUv (canvas-space UV, before cover-fit), the cover-fit transform
-// via sampleImage(), and uCanvasAspect for square-cell math — so a module's
-// fragSource is just its own uniforms + main(), nothing about the render
-// harness itself.
+// Prepended to every pass of every ShaderModule's fragSource (SPEC.md
+// §4.1). Gives shader modules vUv (canvas-space UV, before cover-fit), the
+// cover-fit transform via sampleImage(), uCanvasAspect for square-cell
+// math, and — for multi-pass shaders (SPEC.md §4.2, Riso) — uPrevPass via
+// samplePrevPass() to read the previous pass's output directly (no
+// cover-fit transform needed there; it's already exact canvas resolution,
+// 1:1 with vUv). Single-pass modules just never reference it.
 const PREAMBLE = `#version 300 es
 precision highp float;
 in vec2 vUv;
@@ -42,11 +44,16 @@ uniform float uCanvasAspect;
 uniform sampler2D uAtlas;
 uniform float uAtlasCols;
 uniform float uAtlasRows;
+uniform sampler2D uPrevPass;
 out vec4 fragColor;
 
 vec4 sampleImage(vec2 canvasUv) {
   vec2 texUv = vec2(0.5) + (canvasUv - vec2(0.5)) * uRatio - uPan;
   return texture(uImage, texUv);
+}
+
+vec4 samplePrevPass(vec2 canvasUv) {
+  return texture(uPrevPass, canvasUv);
 }
 `
 
@@ -73,7 +80,7 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b]
 }
 
-interface CompiledShader {
+interface CompiledPass {
   program: WebGLProgram
   uImage: WebGLUniformLocation | null
   uRatio: WebGLUniformLocation | null
@@ -82,20 +89,43 @@ interface CompiledShader {
   uAtlas: WebGLUniformLocation | null
   uAtlasCols: WebGLUniformLocation | null
   uAtlasRows: WebGLUniformLocation | null
+  uPrevPass: WebGLUniformLocation | null
   paramLocations: Map<string, WebGLUniformLocation | null>
+}
+
+interface CompiledShader {
+  passes: CompiledPass[]
   atlasTexture: WebGLTexture | null
   atlasCols: number
   atlasRows: number
 }
 
-function compileShaderModule(gl: WebGL2RenderingContext, module: ShaderModule): CompiledShader {
-  // Multi-pass (Riso, passes 2|3) isn't wired up yet — a deliberate
-  // architecture extension for later, per SPEC.md §4.2's build-order note.
-  const fragBody = Array.isArray(module.fragSource) ? module.fragSource[0] : module.fragSource
+function compilePass(gl: WebGL2RenderingContext, module: ShaderModule, fragBody: string): CompiledPass {
   const program = createProgram(gl, VERTEX_SOURCE, PREAMBLE + fragBody)
   const paramLocations = new Map(
     module.uniformSchema.map((def) => [def.key, gl.getUniformLocation(program, uniformGlslName(def.key))]),
   )
+  return {
+    program,
+    uImage: gl.getUniformLocation(program, 'uImage'),
+    uRatio: gl.getUniformLocation(program, 'uRatio'),
+    uPan: gl.getUniformLocation(program, 'uPan'),
+    uCanvasAspect: gl.getUniformLocation(program, 'uCanvasAspect'),
+    uAtlas: gl.getUniformLocation(program, 'uAtlas'),
+    uAtlasCols: gl.getUniformLocation(program, 'uAtlasCols'),
+    uAtlasRows: gl.getUniformLocation(program, 'uAtlasRows'),
+    uPrevPass: gl.getUniformLocation(program, 'uPrevPass'),
+    paramLocations,
+  }
+}
+
+function compileShaderModule(gl: WebGL2RenderingContext, module: ShaderModule): CompiledShader {
+  // SPEC.md §4.1 — fragSource is one string per pass. Single-pass modules
+  // (everything except Riso) just get a one-entry passes array; the render
+  // loop below treats both cases identically, so this was additive to the
+  // single-pass path, not a rewrite of it.
+  const fragSources = Array.isArray(module.fragSource) ? module.fragSource : [module.fragSource]
+  const passes = fragSources.map((fragBody) => compilePass(gl, module, fragBody))
 
   // Cell-based shaders (ASCII, Pattern fill — SPEC.md §4.2) declare an
   // atlas; everything else leaves this null and the uAtlas/* uniforms in
@@ -115,15 +145,7 @@ function compileShaderModule(gl: WebGL2RenderingContext, module: ShaderModule): 
   }
 
   return {
-    program,
-    uImage: gl.getUniformLocation(program, 'uImage'),
-    uRatio: gl.getUniformLocation(program, 'uRatio'),
-    uPan: gl.getUniformLocation(program, 'uPan'),
-    uCanvasAspect: gl.getUniformLocation(program, 'uCanvasAspect'),
-    uAtlas: gl.getUniformLocation(program, 'uAtlas'),
-    uAtlasCols: gl.getUniformLocation(program, 'uAtlasCols'),
-    uAtlasRows: gl.getUniformLocation(program, 'uAtlasRows'),
-    paramLocations,
+    passes,
     atlasTexture,
     atlasCols: module.atlas?.cols ?? 1,
     atlasRows: module.atlas?.rows ?? 1,
@@ -161,6 +183,45 @@ function setParam(
   }
 }
 
+// Offscreen render target for intermediate multi-pass output. Resized
+// lazily (only when canvas dimensions actually change), not every frame.
+interface OffscreenTarget {
+  framebuffer: WebGLFramebuffer
+  texture: WebGLTexture
+  width: number
+  height: number
+}
+
+function createOffscreenTarget(gl: WebGL2RenderingContext): OffscreenTarget {
+  const texture = gl.createTexture()
+  if (!texture) throw new Error('Failed to create offscreen texture')
+  gl.bindTexture(gl.TEXTURE_2D, texture)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+
+  const framebuffer = gl.createFramebuffer()
+  if (!framebuffer) throw new Error('Failed to create framebuffer')
+
+  return { framebuffer, texture, width: 0, height: 0 }
+}
+
+function resizeOffscreenTarget(
+  gl: WebGL2RenderingContext,
+  target: OffscreenTarget,
+  width: number,
+  height: number,
+) {
+  if (target.width === width && target.height === height) return
+  gl.bindTexture(gl.TEXTURE_2D, target.texture)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer)
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.texture, 0)
+  target.width = width
+  target.height = height
+}
+
 export interface Renderer {
   render: (options?: {
     shader: ShaderModule
@@ -181,6 +242,10 @@ export function createRenderer(canvas: HTMLCanvasElement, shaderModules: ShaderM
   const vao = gl.createVertexArray()
   const texture = gl.createTexture()
 
+  // Ping-pong pair for multi-pass shaders — created lazily on first use
+  // rather than unconditionally, since most shaders never need them.
+  let pingPong: [OffscreenTarget, OffscreenTarget] | null = null
+
   let hasImage = false
 
   // Arrow functions, not declarations — TS only retains the null-check
@@ -199,48 +264,86 @@ export function createRenderer(canvas: HTMLCanvasElement, shaderModules: ShaderM
   }
 
   const render: Renderer['render'] = (options) => {
-    // SPEC.md §2.2 — canvas renders at true export dimensions, always.
-    // The viewport always matches canvas.width/height exactly; there is no
-    // separate preview-resolution render path.
-    gl.viewport(0, 0, canvas.width, canvas.height)
     gl.bindVertexArray(vao)
 
-    if (hasImage && options) {
-      const shaderProgram = compiled.get(options.shader.id)
-      if (!shaderProgram) throw new Error(`Unknown shader id: ${options.shader.id}`)
-      const transform = options.transform ?? IDENTITY_TRANSFORM
+    if (!hasImage || !options) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      // SPEC.md §2.2 — canvas renders at true export dimensions, always.
+      gl.viewport(0, 0, canvas.width, canvas.height)
+      gl.useProgram(placeholderProgram)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+      return
+    }
 
-      gl.useProgram(shaderProgram.program)
+    const shaderProgram = compiled.get(options.shader.id)
+    if (!shaderProgram) throw new Error(`Unknown shader id: ${options.shader.id}`)
+    const transform = options.transform ?? IDENTITY_TRANSFORM
+    const passCount = shaderProgram.passes.length
+
+    if (passCount > 1 && !pingPong) {
+      pingPong = [createOffscreenTarget(gl), createOffscreenTarget(gl)]
+    }
+    if (pingPong) {
+      resizeOffscreenTarget(gl, pingPong[0], canvas.width, canvas.height)
+      resizeOffscreenTarget(gl, pingPong[1], canvas.width, canvas.height)
+    }
+
+    let prevPassTexture: WebGLTexture | null = null
+    let writeIndex = 0
+
+    for (let i = 0; i < passCount; i++) {
+      const pass = shaderProgram.passes[i]
+      const isLastPass = i === passCount - 1
+
+      // SPEC.md §2.2 — canvas renders at true export dimensions, always;
+      // that applies to every intermediate pass too, not just the final
+      // one — there's no separate preview-resolution render path anywhere
+      // in the pipeline.
+      gl.bindFramebuffer(gl.FRAMEBUFFER, isLastPass || !pingPong ? null : pingPong[writeIndex].framebuffer)
+      gl.viewport(0, 0, canvas.width, canvas.height)
+
+      gl.useProgram(pass.program)
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.uniform1i(shaderProgram.uImage, 0)
-      gl.uniform2f(shaderProgram.uRatio, transform.ratioX, transform.ratioY)
-      gl.uniform2f(shaderProgram.uPan, transform.panX, transform.panY)
-      gl.uniform1f(shaderProgram.uCanvasAspect, canvas.width / canvas.height)
+      gl.uniform1i(pass.uImage, 0)
+      gl.uniform2f(pass.uRatio, transform.ratioX, transform.ratioY)
+      gl.uniform2f(pass.uPan, transform.panX, transform.panY)
+      gl.uniform1f(pass.uCanvasAspect, canvas.width / canvas.height)
 
       if (shaderProgram.atlasTexture) {
         gl.activeTexture(gl.TEXTURE1)
         gl.bindTexture(gl.TEXTURE_2D, shaderProgram.atlasTexture)
-        gl.uniform1i(shaderProgram.uAtlas, 1)
-        gl.uniform1f(shaderProgram.uAtlasCols, shaderProgram.atlasCols)
-        gl.uniform1f(shaderProgram.uAtlasRows, shaderProgram.atlasRows)
+        gl.uniform1i(pass.uAtlas, 1)
+        gl.uniform1f(pass.uAtlasCols, shaderProgram.atlasCols)
+        gl.uniform1f(pass.uAtlasRows, shaderProgram.atlasRows)
+      }
+
+      if (prevPassTexture) {
+        gl.activeTexture(gl.TEXTURE2)
+        gl.bindTexture(gl.TEXTURE_2D, prevPassTexture)
+        gl.uniform1i(pass.uPrevPass, 2)
       }
 
       for (const def of options.shader.uniformSchema) {
-        setParam(gl, shaderProgram.paramLocations.get(def.key) ?? null, def, options.values[def.key])
+        setParam(gl, pass.paramLocations.get(def.key) ?? null, def, options.values[def.key])
       }
-    } else {
-      gl.useProgram(placeholderProgram)
-    }
 
-    gl.drawArrays(gl.TRIANGLES, 0, 3)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+
+      if (!isLastPass && pingPong) {
+        prevPassTexture = pingPong[writeIndex].texture
+        writeIndex = writeIndex === 0 ? 1 : 0
+      }
+    }
   }
 
   // Reads directly from the framebuffer we just drew into — call this
   // synchronously right after render(), in the same task, with no `await`
   // in between. Unlike canvas.toBlob(), this isn't relying on the browser
   // to have preserved the drawing buffer across a composite step; there's
-  // no composite step involved at all.
+  // no composite step involved at all. Multi-pass shaders' last pass
+  // always renders to the default framebuffer (canvas), same as
+  // single-pass, so this needs no pass-count awareness.
   const readPixels = (): ImageData => {
     const { width, height } = canvas
     const pixels = new Uint8ClampedArray(width * height * 4)
