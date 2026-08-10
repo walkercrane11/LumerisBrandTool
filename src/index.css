@@ -35,7 +35,8 @@ body {
 }
 
 .size-select,
-.upload {
+.upload,
+.zoom-control {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -58,4 +59,13 @@ body {
   height: auto;
   display: block;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  touch-action: none;
+}
+
+.canvas-stage canvas.draggable {
+  cursor: grab;
+}
+
+.canvas-stage canvas.draggable:active {
+  cursor: grabbing;
 }
