@@ -281,11 +281,13 @@ Image upload → texture → crop/fit → single per-pixel shader → canvas at 
 
 **Verified 2026-08-10:** all five canvas sizes, Pixelated shader, PNG + AVIF export. Chrome checked via automated browser testing (dimensions, GL errors, pixel content, AVIF `ftyp`/`avif` header bytes). Firefox and Safari checked by Walker running the same header-inspection script manually — all clear, no failures found in any browser.
 
-### Phase 2 — Shader modules
+### Phase 2 — Shader modules — done
 
 Pixelated, Dither, Halftone against the module contract. Then ASCII (atlas-based) and Pattern fill (revised to procedural tonal bands — see §4.2, not atlas-based after all). Then Riso, with multi-pass.
 
 **Done when:** all six render correctly at all five canvas sizes, UI is generated entirely from `uniformSchema`, and adding a shader requires touching no UI code.
+
+**Verified 2026-08-10 (#21):** all 6 real shaders + `none` (35 combinations) checked in Chrome — GL errors, canvas dimensions, and both PNG/AVIF export (valid file headers, not just blob type) at every combination, no failures. Confirmed via code inspection that `ShaderControls.tsx`, `App.tsx`, and `useCanvasRenderer.ts` contain zero shader-ID-specific branches — five shaders (#15/#16/#17/#18/#20) were added after the contract existed and none of them touched the UI layer. No cross-browser (Firefox/Safari) re-check here, unlike Phase 1's sign-off — that was specifically about `canvas.toBlob('image/avif')`'s browser inconsistency, already resolved and untouched by Phase 2; this phase's "Done when" doesn't call for it, and Phase 2 doesn't touch the export code path at all, only adds shader modules that flow through it.
 
 ### Phase 3 — Vector layer
 
