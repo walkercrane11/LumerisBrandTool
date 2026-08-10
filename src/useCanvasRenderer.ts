@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { createRenderer, type Renderer } from './gl/renderer'
 import type { CanvasSize } from './canvasSizes'
 
@@ -23,4 +23,11 @@ export function useCanvasRenderer(
     canvas.height = size.height
     rendererRef.current.render()
   }, [canvasRef, size])
+
+  const setImage = useCallback((source: TexImageSource) => {
+    rendererRef.current?.setImage(source)
+    rendererRef.current?.render()
+  }, [])
+
+  return { setImage }
 }

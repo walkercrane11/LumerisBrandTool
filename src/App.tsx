@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { CANVAS_SIZES } from './canvasSizes'
 import { useCanvasRenderer } from './useCanvasRenderer'
 
@@ -7,7 +7,32 @@ function App() {
   const size = CANVAS_SIZES.find((s) => s.id === sizeId) ?? CANVAS_SIZES[0]
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  useCanvasRenderer(canvasRef, size)
+  const { setImage } = useCanvasRenderer(canvasRef, size)
+
+  const loadFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) return
+    try {
+      const bitmap = await createImageBitmap(file)
+      setImage(bitmap)
+    } catch (err) {
+      console.error('Failed to decode image', err)
+    }
+  }
+
+  const handleFileInput = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) void loadFile(file)
+  }
+
+  const handleDrop = (e: DragEvent<HTMLElement>) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files?.[0]
+    if (file) void loadFile(file)
+  }
+
+  const handleDragOver = (e: DragEvent<HTMLElement>) => {
+    e.preventDefault()
+  }
 
   return (
     <div className="app">
@@ -23,8 +48,16 @@ function App() {
             ))}
           </select>
         </label>
+        <label className="upload">
+          Upload image
+          <input type="file" accept="image/*" onChange={handleFileInput} />
+        </label>
       </header>
-      <main className="canvas-stage">
+      <main
+        className="canvas-stage"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+      >
         <canvas
           ref={canvasRef}
           style={{ aspectRatio: `${size.width} / ${size.height}` }}

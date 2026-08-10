@@ -34,7 +34,8 @@ body {
   margin: 0;
 }
 
-.size-select {
+.size-select,
+.upload {
   display: flex;
   align-items: center;
   gap: 8px;
