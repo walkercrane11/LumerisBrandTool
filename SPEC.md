@@ -262,13 +262,15 @@ Deliverables:
 
 **Done when:** the remaining three items above are resolved. Comps and the combination/dither/scribble decisions are already in.
 
-### Phase 1 — Render core
+### Phase 1 — Render core — done
 
 Image upload → texture → crop/fit → single per-pixel shader → canvas at true export size → PNG and AVIF export.
 
 **Done when:** one shader works end to end at all five canvas sizes, and a 1080×1920 AVIF export produces a valid AVIF file in Chrome, Firefox and Safari, verified by inspecting the file header — not by trusting the blob type.
 
 *Prove export in Phase 1, not Phase 5. It is the assumption most likely to bite, and everything else is built on top of it.*
+
+**Verified 2026-08-10:** all five canvas sizes, Pixelated shader, PNG + AVIF export. Chrome checked via automated browser testing (dimensions, GL errors, pixel content, AVIF `ftyp`/`avif` header bytes). Firefox and Safari checked by Walker running the same header-inspection script manually — all clear, no failures found in any browser.
 
 ### Phase 2 — Shader modules
 
