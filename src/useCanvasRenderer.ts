@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { createRenderer, type Renderer } from './gl/renderer'
 import type { CanvasSize } from './canvasSizes'
+import { computeTransform, type FitState, type Size } from './fit'
 
 export function useCanvasRenderer(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   size: CanvasSize,
+  imageSize: Size | null,
+  fit: FitState,
 ) {
   const rendererRef = useRef<Renderer | null>(null)
 
@@ -21,13 +24,17 @@ export function useCanvasRenderer(
     // for display reasons, only when the selected canvas size changes.
     canvas.width = size.width
     canvas.height = size.height
-    rendererRef.current.render()
-  }, [canvasRef, size])
 
-  const setImage = useCallback((source: TexImageSource) => {
+    const transform = imageSize ? computeTransform(imageSize, size, fit) : undefined
+    rendererRef.current.render(transform)
+  }, [canvasRef, size, imageSize, fit])
+
+  const setImage = (source: TexImageSource) => {
+    // Uploads to the GPU only. The caller updates imageSize/fit state right
+    // after, which re-triggers the effect above with the correct transform —
+    // rendering here too would draw one frame with a stale/identity one.
     rendererRef.current?.setImage(source)
-    rendererRef.current?.render()
-  }, [])
+  }
 
   return { setImage }
 }

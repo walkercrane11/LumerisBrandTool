@@ -27,20 +27,33 @@ void main() {
 }
 `
 
-// Identity passthrough — samples the uploaded image with no treatment.
-// Stretches to the canvas aspect ratio; cover-fit/crop is #3, not this issue.
+// Identity passthrough (no shader treatment) with cover-fit pan/zoom applied
+// via uRatio/uPan — see src/fit.ts for the math. uRatio=1,uPan=0 is a plain
+// stretch (identity), the same behavior as before cover-fit existed.
 const IMAGE_FRAGMENT_SOURCE = `#version 300 es
 precision highp float;
 in vec2 vUv;
 uniform sampler2D uImage;
+uniform vec2 uRatio;
+uniform vec2 uPan;
 out vec4 fragColor;
 void main() {
-  fragColor = texture(uImage, vUv);
+  vec2 texUv = vec2(0.5) + (vUv - vec2(0.5)) * uRatio - uPan;
+  fragColor = texture(uImage, texUv);
 }
 `
 
+export interface RenderTransform {
+  ratioX: number
+  ratioY: number
+  panX: number
+  panY: number
+}
+
+const IDENTITY_TRANSFORM: RenderTransform = { ratioX: 1, ratioY: 1, panX: 0, panY: 0 }
+
 export interface Renderer {
-  render: () => void
+  render: (transform?: RenderTransform) => void
   setImage: (source: TexImageSource) => void
 }
 
@@ -51,6 +64,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   const placeholderProgram = createProgram(gl, VERTEX_SOURCE, PLACEHOLDER_FRAGMENT_SOURCE)
   const imageProgram = createProgram(gl, VERTEX_SOURCE, IMAGE_FRAGMENT_SOURCE)
   const imageUniformLocation = gl.getUniformLocation(imageProgram, 'uImage')
+  const ratioUniformLocation = gl.getUniformLocation(imageProgram, 'uRatio')
+  const panUniformLocation = gl.getUniformLocation(imageProgram, 'uPan')
 
   const vao = gl.createVertexArray()
   const texture = gl.createTexture()
@@ -72,7 +87,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     hasImage = true
   }
 
-  const render = () => {
+  const render = (transform: RenderTransform = IDENTITY_TRANSFORM) => {
     // SPEC.md §2.2 — canvas renders at true export dimensions, always.
     // The viewport always matches canvas.width/height exactly; there is no
     // separate preview-resolution render path.
@@ -84,6 +99,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, texture)
       gl.uniform1i(imageUniformLocation, 0)
+      gl.uniform2f(ratioUniformLocation, transform.ratioX, transform.ratioY)
+      gl.uniform2f(panUniformLocation, transform.panX, transform.panY)
     } else {
       gl.useProgram(placeholderProgram)
     }
