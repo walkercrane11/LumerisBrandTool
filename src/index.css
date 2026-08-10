@@ -36,11 +36,28 @@ body {
 
 .size-select,
 .upload,
-.zoom-control {
+.zoom-control,
+.shader-select {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
+}
+
+.shader-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #ddd;
+  font-size: 13px;
+}
+
+.shader-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .canvas-stage {
