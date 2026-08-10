@@ -11,6 +11,7 @@
     "reference": "echo 'TODO: not implemented until the render core exists (SPEC.md §7 Phase 1/2)' && exit 1"
   },
   "dependencies": {
+    "@jsquash/avif": "^2.1.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
