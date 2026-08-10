@@ -60,6 +60,16 @@ function uniformGlslName(key: string): string {
   return `u${key[0].toUpperCase()}${key.slice(1)}`
 }
 
+// #rrggbb -> [0,1] floats. Only format the color UI produces (native
+// <input type="color">, or the future brand-palette swatch picker).
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace('#', '')
+  const r = parseInt(normalized.slice(0, 2), 16) / 255
+  const g = parseInt(normalized.slice(2, 4), 16) / 255
+  const b = parseInt(normalized.slice(4, 6), 16) / 255
+  return [r, g, b]
+}
+
 interface CompiledShader {
   program: WebGLProgram
   uImage: WebGLUniformLocation | null
@@ -109,10 +119,12 @@ function setParam(
       gl.uniform1i(location, Math.max(0, index))
       break
     }
-    case 'color':
-      // Brand palette values are still TBD (SPEC.md §9) — nothing to upload
-      // yet. No shader currently declares a color uniform.
+    case 'color': {
+      // Uniform declared as vec3 — color uniforms carry no alpha.
+      const [r, g, b] = hexToRgb(String(value))
+      gl.uniform3f(location, r, g, b)
       break
+    }
   }
 }
 
