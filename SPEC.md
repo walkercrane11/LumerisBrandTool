@@ -133,7 +133,8 @@ The UI is generated from `uniformSchema`. Adding a seventh shader should require
 **Cell-based (sample a grid region, stamp from an atlas texture):**
 
 - **ASCII** — samples cell luminance, indexes into a glyph atlas. Params: cells across, glyph set, fg/bg, gamma, invert, **contrast** (added after #17's initial build — Walker's feedback: the grid read too loose and the tonal range too flat; contrast stretches the luminance curve so the full glyph ramp, space to `@`, actually gets used). **Decided:** no T/O/M-specific character set — glyph set is standard ASCII characters (e.g. a luminance-ordered ramp like ` .:-=+*#%@`), built fresh rather than ported from prior work.
-- **Pattern fill** — same mechanism, shape atlas instead of glyphs. Params: cells across, shape set, rotation jitter, invert, fg/bg. **Build this immediately after ASCII** — it is the same atlas pipeline with a different texture, and doing them together avoids writing the sampling code twice.
+
+**Pattern fill — revised, not atlas-based.** Originally scoped as "same mechanism [as ASCII], shape atlas instead of glyphs," and #18 was first built that way (a square-size ramp stamped per cell via #17's atlas). Walker reviewed `reference/pattern.png` and the actual target is different: discrete tonal bands, each filled with a categorically different procedural pattern (that comp uses checkerboard, dots, diagonal stripes, small squares, and solid, light to dark) — not one shape scaling continuously by size. That doesn't fit the atlas approach, since these patterns tile at their own frequency independent of how finely luminance is sampled, and confirmed patterns can be built procedurally in GLSL rather than needing texture assets. Params: cells across (controls each pattern's tiling frequency, not luminance-sampling resolution — that's per-pixel so band edges follow the source image's contours), contrast, rotation angle (a uniform rotation of the whole pattern coordinate space, not true per-cell jitter — randomly rotating a tiling pattern per-cell breaks it into visible seams), invert, fg/bg. The specific 5 patterns and their order are this build's choice, not a spec mandate — treat `reference/pattern.png` as directional, not pixel-prescriptive.
 
 **Multi-pass:**
 
@@ -274,7 +275,7 @@ Image upload → texture → crop/fit → single per-pixel shader → canvas at 
 
 ### Phase 2 — Shader modules
 
-Pixelated, Dither, Halftone against the module contract. Then ASCII and Pattern fill on the shared atlas path. Then Riso, with multi-pass.
+Pixelated, Dither, Halftone against the module contract. Then ASCII (atlas-based) and Pattern fill (revised to procedural tonal bands — see §4.2, not atlas-based after all). Then Riso, with multi-pass.
 
 **Done when:** all six render correctly at all five canvas sizes, UI is generated entirely from `uniformSchema`, and adding a shader requires touching no UI code.
 

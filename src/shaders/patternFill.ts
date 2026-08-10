@@ -1,35 +1,31 @@
 import type { ShaderModule } from './types'
-import { createSquareAtlasSource } from './shapeAtlas'
 
-const LEVELS = 8
-
-// SPEC.md §4.2 — "same mechanism, shape atlas instead of glyphs." Params:
-// cells across, shape set, rotation jitter, invert, fg/bg (+ contrast,
-// same addition made to ASCII after Walker's feedback on #17 — the flat
-// linear luminance mapping without it rarely reached either tonal
-// extreme). No "shape set" control — only one ramp exists yet, same
-// reasoning as ASCII's glyphSet and Pixelated's sampleMode: nothing to
-// pick between until there's a second option.
+// SPEC.md §4.2 — "same mechanism, shape atlas instead of glyphs." Revised
+// after reviewing reference/pattern.png (Walker, 2026-08-10): the actual
+// target isn't one shape scaling continuously by size — it's discrete
+// tonal bands, each filled with a categorically DIFFERENT pattern
+// (checkerboard, dots, diagonal stripes, small squares, solid), light to
+// dark. That doesn't fit the #17 atlas approach (one shape stamped per
+// luminance-sampling cell) — these patterns tile at their own frequency,
+// independent of how finely luminance is sampled. Confirmed with Walker:
+// build these procedurally (no assets needed, they're all cheap GLSL
+// math), and treat the reference comp's specific 5 patterns as an
+// example, not a mandate. #17's atlas infrastructure is unused here now,
+// but stays valid — ASCII still needs it.
 export const patternFillShader: ShaderModule = {
   id: 'pattern-fill',
   label: 'Pattern fill',
   passes: 1,
-  atlas: {
-    cols: LEVELS,
-    rows: 1,
-    cellCount: LEVELS,
-    createSource: createSquareAtlasSource(64, LEVELS),
-  },
   uniformSchema: [
     {
       key: 'cellsAcross',
-      label: 'Cell size',
+      label: 'Pattern scale',
       type: 'float',
       unit: 'cellsAcross',
       min: 10,
       max: 150,
       step: 1,
-      default: 50,
+      default: 60,
     },
     {
       key: 'contrast',
@@ -38,11 +34,11 @@ export const patternFillShader: ShaderModule = {
       min: 0.5,
       max: 3,
       step: 0.05,
-      default: 1.5,
+      default: 1.4,
     },
     {
       key: 'rotationJitter',
-      label: 'Rotation jitter',
+      label: 'Pattern angle',
       type: 'float',
       min: 0,
       max: 1,
@@ -68,16 +64,15 @@ export const patternFillShader: ShaderModule = {
       default: '#f4f1ea',
     },
   ],
-  // Deliberately near-identical to ascii.ts's cell/atlas-lookup math —
-  // that's the point (SPEC §4.2: "same atlas pipeline with a different
-  // texture"). The only real addition is per-cell rotation jitter, applied
-  // to the local sample point before the atlas lookup rather than to the
-  // whole grid (contrast Halftone's global screen angle). Rotating can
-  // push a corner outside the cell's own [0,1] UV range, which would
-  // sample into a neighboring atlas cell (a different-sized square) if
-  // left unclamped — so the rotated point is clamped back into range,
-  // meaning a jittered square clips at its own cell boundary at most,
-  // never bleeds into its neighbor's.
+  // Luminance is sampled per-pixel (not per-cell) so band edges follow the
+  // source image's contours smoothly, matching the reference comp — the
+  // cellsAcross grid only controls each pattern's own tiling frequency.
+  //
+  // rotationJitter rotates the whole pattern coordinate space by a fixed
+  // angle (not a per-cell random jitter) — randomly rotating a tiling
+  // pattern per-cell breaks its continuity into visible seams, so this is
+  // a uniform "pattern angle" control instead, keeping the SPEC-documented
+  // param meaningful without that artifact.
   fragSource: `
 uniform float uCellsAcross;
 uniform float uContrast;
@@ -86,37 +81,61 @@ uniform bool uInvert;
 uniform vec3 uFg;
 uniform vec3 uBg;
 
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+const float BANDS = 5.0;
+
+float checkerPattern(vec2 p) {
+  vec2 cell = floor(p);
+  return mod(cell.x + cell.y, 2.0);
+}
+
+float dotsPattern(vec2 p) {
+  vec2 local = fract(p) - 0.5;
+  return 1.0 - smoothstep(0.15, 0.22, length(local));
+}
+
+float stripesPattern(vec2 p) {
+  float diag = p.x + p.y;
+  return step(0.5, fract(diag));
+}
+
+float smallSquaresPattern(vec2 p) {
+  vec2 local = fract(p * 2.0) - 0.5;
+  vec2 d = abs(local);
+  return 1.0 - step(0.32, max(d.x, d.y));
 }
 
 void main() {
-  vec2 cellSize = vec2(1.0 / uCellsAcross, uCanvasAspect / uCellsAcross);
-  vec2 cellCoord = floor(vUv / cellSize);
-  vec2 cellLocal = fract(vUv / cellSize);
-  vec2 cellCenter = (cellCoord + 0.5) * cellSize;
-
-  vec4 sampled = sampleImage(cellCenter);
+  vec4 sampled = sampleImage(vUv);
   float luminance = dot(sampled.rgb, vec3(0.2126, 0.7152, 0.0722));
   luminance = clamp((luminance - 0.5) * uContrast + 0.5, 0.0, 1.0);
 
   float density = 1.0 - luminance;
   if (uInvert) density = 1.0 - density;
 
-  vec2 centered = cellLocal - 0.5;
-  float angle = (hash(cellCoord) - 0.5) * uRotationJitter * radians(90.0);
+  float band = min(floor(density * BANDS), BANDS - 1.0);
+
+  vec2 cellSize = vec2(1.0 / uCellsAcross, uCanvasAspect / uCellsAcross);
+  vec2 raw = vUv / cellSize;
+
+  float angle = uRotationJitter * radians(45.0);
   float ca = cos(angle);
   float sa = sin(angle);
-  mat2 jitterRot = mat2(ca, sa, -sa, ca);
-  vec2 rotatedLocal = clamp(jitterRot * centered + 0.5, 0.0, 1.0);
+  vec2 p = mat2(ca, sa, -sa, ca) * raw;
 
-  float cellCount = uAtlasCols * uAtlasRows;
-  float index = floor(density * (cellCount - 1.0) + 0.5);
-  vec2 atlasCell = vec2(mod(index, uAtlasCols), floor(index / uAtlasCols));
-  vec2 atlasUv = (atlasCell + rotatedLocal) / vec2(uAtlasCols, uAtlasRows);
+  float coverage;
+  if (band < 0.5) {
+    coverage = checkerPattern(p);
+  } else if (band < 1.5) {
+    coverage = dotsPattern(p);
+  } else if (band < 2.5) {
+    coverage = stripesPattern(p);
+  } else if (band < 3.5) {
+    coverage = smallSquaresPattern(p);
+  } else {
+    coverage = 1.0;
+  }
 
-  vec4 shape = texture(uAtlas, atlasUv);
-  fragColor = vec4(mix(uBg, uFg, shape.a), sampled.a);
+  fragColor = vec4(mix(uBg, uFg, coverage), sampled.a);
 }
 `,
 }
