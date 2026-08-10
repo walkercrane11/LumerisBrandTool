@@ -36,7 +36,9 @@ function App() {
   // derived on every render rather than synced back into state via an effect.
   const clampedFit = imageSize ? clampFit(fit, imageSize, size) : fit
 
-  const { setImage, exportPng } = useCanvasRenderer(
+  const [isEncodingAvif, setIsEncodingAvif] = useState(false)
+
+  const { setImage, exportPng, exportAvif } = useCanvasRenderer(
     canvasRef,
     size,
     imageSize,
@@ -127,18 +129,33 @@ function App() {
     setShaderValues((prev) => ({ ...prev, [key]: value }))
   }
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const handleExportPng = async () => {
     try {
       const blob = await exportPng()
-      const filename = exportFilename(size, shader, shaderValues, clampedFit, 'png')
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      link.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, exportFilename(size, shader, shaderValues, clampedFit, 'png'))
     } catch (err) {
       console.error('PNG export failed', err)
+    }
+  }
+
+  const handleExportAvif = async () => {
+    setIsEncodingAvif(true)
+    try {
+      const blob = await exportAvif()
+      downloadBlob(blob, exportFilename(size, shader, shaderValues, clampedFit, 'avif'))
+    } catch (err) {
+      console.error('AVIF export failed', err)
+    } finally {
+      setIsEncodingAvif(false)
     }
   }
 
@@ -184,6 +201,13 @@ function App() {
         </label>
         <button type="button" disabled={!imageSize} onClick={() => void handleExportPng()}>
           Export PNG
+        </button>
+        <button
+          type="button"
+          disabled={!imageSize || isEncodingAvif}
+          onClick={() => void handleExportAvif()}
+        >
+          {isEncodingAvif ? 'Encoding AVIF…' : 'Export AVIF'}
         </button>
       </header>
       <ShaderControls schema={shader.uniformSchema} values={shaderValues} onChange={handleParamChange} />

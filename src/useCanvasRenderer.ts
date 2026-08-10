@@ -62,5 +62,28 @@ export function useCanvasRenderer(
     })
   }
 
-  return { setImage, exportPng }
+  const exportAvif = async (): Promise<Blob> => {
+    const renderer = rendererRef.current
+    if (!renderer) throw new Error('Canvas not ready')
+
+    // SPEC.md §6.2 — do not use canvas.toBlob('image/avif'); only Chrome
+    // 124+ supports it, Firefox/Safari silently fall back to PNG while
+    // still handing back a file. @jsquash/avif (WASM) is identical on
+    // every browser. Dynamic import so the WASM chunk loads on first
+    // export, not at page load.
+    const { encode } = await import('@jsquash/avif')
+
+    // Same freshness requirement as exportPng, but readPixels() reads the
+    // framebuffer directly rather than going through toBlob — see
+    // gl/renderer.ts's readPixels for why that's actually the stronger
+    // guarantee of the two.
+    const transform = imageSize ? computeTransform(imageSize, size, fit) : undefined
+    renderer.render(imageSize ? { shader, values: shaderValues, transform } : undefined)
+    const imageData = renderer.readPixels()
+
+    const arrayBuffer = await encode(imageData)
+    return new Blob([arrayBuffer], { type: 'image/avif' })
+  }
+
+  return { setImage, exportPng, exportAvif }
 }

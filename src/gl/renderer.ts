@@ -123,6 +123,7 @@ export interface Renderer {
     transform?: RenderTransform
   }) => void
   setImage: (source: TexImageSource) => void
+  readPixels: () => ImageData
 }
 
 export function createRenderer(canvas: HTMLCanvasElement, shaderModules: ShaderModule[]): Renderer {
@@ -182,5 +183,27 @@ export function createRenderer(canvas: HTMLCanvasElement, shaderModules: ShaderM
     gl.drawArrays(gl.TRIANGLES, 0, 3)
   }
 
-  return { render, setImage }
+  // Reads directly from the framebuffer we just drew into — call this
+  // synchronously right after render(), in the same task, with no `await`
+  // in between. Unlike canvas.toBlob(), this isn't relying on the browser
+  // to have preserved the drawing buffer across a composite step; there's
+  // no composite step involved at all.
+  const readPixels = (): ImageData => {
+    const { width, height } = canvas
+    const pixels = new Uint8ClampedArray(width * height * 4)
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+
+    // gl.readPixels origin is bottom-left; ImageData origin is top-left.
+    const flipped = new Uint8ClampedArray(pixels.length)
+    const rowBytes = width * 4
+    for (let y = 0; y < height; y++) {
+      const srcStart = y * rowBytes
+      const dstStart = (height - 1 - y) * rowBytes
+      flipped.set(pixels.subarray(srcStart, srcStart + rowBytes), dstStart)
+    }
+
+    return new ImageData(flipped, width, height)
+  }
+
+  return { render, setImage, readPixels }
 }
