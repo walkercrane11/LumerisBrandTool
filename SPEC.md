@@ -132,7 +132,7 @@ The UI is generated from `uniformSchema`. Adding a seventh shader should require
 
 **Cell-based (sample a grid region, stamp from an atlas texture):**
 
-- **ASCII** — samples cell luminance, indexes into a glyph atlas. Params: cells across, glyph set, fg/bg, gamma, invert. *Existing work: the T/O/M character-set ASCII shader ports directly here.*
+- **ASCII** — samples cell luminance, indexes into a glyph atlas. Params: cells across, glyph set, fg/bg, gamma, invert. **Decided:** no T/O/M-specific character set — glyph set is standard ASCII characters (e.g. a luminance-ordered ramp like ` .:-=+*#%@`), built fresh rather than ported from prior work.
 - **Pattern fill** — same mechanism, shape atlas instead of glyphs. Params: cells across, shape set, rotation jitter, invert, fg/bg. **Build this immediately after ASCII** — it is the same atlas pipeline with a different texture, and doing them together avoids writing the sampling code twice.
 
 **Multi-pass:**
