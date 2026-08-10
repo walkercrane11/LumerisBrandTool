@@ -5,7 +5,8 @@ import { createGlyphAtlasSource } from './glyphAtlas'
 // glyphs. Classic luminance-ordered ramp, sparsest (space) to densest (@).
 const GLYPH_RAMP = ' .:-=+*#%@'
 
-// SPEC.md §4.2 — cells across, glyph set, fg/bg, gamma, invert. Only one
+// SPEC.md §4.2 — cells across, glyph set, fg/bg, gamma, invert; contrast
+// added per Walker's feedback on #17 (updated in SPEC.md too). Only one
 // glyph set exists right now (the ramp above), so — same call as
 // Pixelated's sampleMode — there's nothing for a "glyph set" control to
 // select yet; it's not in uniformSchema until there's a second set to pick
@@ -29,7 +30,7 @@ export const asciiShader: ShaderModule = {
       min: 10,
       max: 150,
       step: 1,
-      default: 40,
+      default: 70,
     },
     {
       key: 'gamma',
@@ -39,6 +40,15 @@ export const asciiShader: ShaderModule = {
       max: 3,
       step: 0.05,
       default: 1,
+    },
+    {
+      key: 'contrast',
+      label: 'Contrast',
+      type: 'float',
+      min: 0.5,
+      max: 3,
+      step: 0.05,
+      default: 1.6,
     },
     {
       key: 'invert',
@@ -66,6 +76,7 @@ export const asciiShader: ShaderModule = {
   fragSource: `
 uniform float uCellsAcross;
 uniform float uGamma;
+uniform float uContrast;
 uniform bool uInvert;
 uniform vec3 uFg;
 uniform vec3 uBg;
@@ -77,7 +88,12 @@ void main() {
   vec2 cellCenter = (cellCoord + 0.5) * cellSize;
 
   vec4 sampled = sampleImage(cellCenter);
-  float luminance = clamp(pow(dot(sampled.rgb, vec3(0.2126, 0.7152, 0.0722)), uGamma), 0.0, 1.0);
+  float luminance = dot(sampled.rgb, vec3(0.2126, 0.7152, 0.0722));
+  // Stretch around the midpoint before gamma, same as Dither/Halftone's
+  // contrast — pushes shadows darker and highlights lighter so the full
+  // glyph ramp (space to @) actually gets used, not just the middle of it.
+  luminance = clamp((luminance - 0.5) * uContrast + 0.5, 0.0, 1.0);
+  luminance = clamp(pow(luminance, uGamma), 0.0, 1.0);
 
   // Dark source -> dense glyph by default; invert flips that.
   float density = 1.0 - luminance;
