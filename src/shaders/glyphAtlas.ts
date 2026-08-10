@@ -14,7 +14,14 @@ export function createGlyphAtlasSource(glyphs: string, cellSize = 64): () => Tex
     // glyph coverage and mixes in the user's fg/bg colors itself.
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.fillStyle = '#ffffff'
-    ctx.font = `${Math.round(cellSize * 0.75)}px monospace`
+    // 1.05x cell size, not 1x — monospace symbol glyphs (#, %, @, etc.)
+    // only fill ~45% of their advance width at fontSize = cellSize, since
+    // the "monospace" width is set by the widest expected character, not
+    // by these. Measured empirically: this scale gets the widest glyph's
+    // bounding box to ~91% of the cell height (66% width), the most this
+    // ramp can grow before the tallest glyph starts touching — and
+    // therefore risking clipping into — its cell edge.
+    ctx.font = `${Math.round(cellSize * 1.05)}px monospace`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
 
