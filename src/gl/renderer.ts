@@ -39,6 +39,9 @@ uniform sampler2D uImage;
 uniform vec2 uRatio;
 uniform vec2 uPan;
 uniform float uCanvasAspect;
+uniform sampler2D uAtlas;
+uniform float uAtlasCols;
+uniform float uAtlasRows;
 out vec4 fragColor;
 
 vec4 sampleImage(vec2 canvasUv) {
@@ -76,7 +79,13 @@ interface CompiledShader {
   uRatio: WebGLUniformLocation | null
   uPan: WebGLUniformLocation | null
   uCanvasAspect: WebGLUniformLocation | null
+  uAtlas: WebGLUniformLocation | null
+  uAtlasCols: WebGLUniformLocation | null
+  uAtlasRows: WebGLUniformLocation | null
   paramLocations: Map<string, WebGLUniformLocation | null>
+  atlasTexture: WebGLTexture | null
+  atlasCols: number
+  atlasRows: number
 }
 
 function compileShaderModule(gl: WebGL2RenderingContext, module: ShaderModule): CompiledShader {
@@ -87,13 +96,37 @@ function compileShaderModule(gl: WebGL2RenderingContext, module: ShaderModule): 
   const paramLocations = new Map(
     module.uniformSchema.map((def) => [def.key, gl.getUniformLocation(program, uniformGlslName(def.key))]),
   )
+
+  // Cell-based shaders (ASCII, Pattern fill — SPEC.md §4.2) declare an
+  // atlas; everything else leaves this null and the uAtlas/* uniforms in
+  // the preamble just go unused (GLSL optimizes them away, getUniformLocation
+  // returns null, and WebGL silently no-ops uniform calls with a null
+  // location — no branch needed here for "does this shader have an atlas").
+  let atlasTexture: WebGLTexture | null = null
+  if (module.atlas) {
+    atlasTexture = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, atlasTexture)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, module.atlas.createSource())
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+  }
+
   return {
     program,
     uImage: gl.getUniformLocation(program, 'uImage'),
     uRatio: gl.getUniformLocation(program, 'uRatio'),
     uPan: gl.getUniformLocation(program, 'uPan'),
     uCanvasAspect: gl.getUniformLocation(program, 'uCanvasAspect'),
+    uAtlas: gl.getUniformLocation(program, 'uAtlas'),
+    uAtlasCols: gl.getUniformLocation(program, 'uAtlasCols'),
+    uAtlasRows: gl.getUniformLocation(program, 'uAtlasRows'),
     paramLocations,
+    atlasTexture,
+    atlasCols: module.atlas?.cols ?? 1,
+    atlasRows: module.atlas?.rows ?? 1,
   }
 }
 
@@ -184,6 +217,14 @@ export function createRenderer(canvas: HTMLCanvasElement, shaderModules: ShaderM
       gl.uniform2f(shaderProgram.uRatio, transform.ratioX, transform.ratioY)
       gl.uniform2f(shaderProgram.uPan, transform.panX, transform.panY)
       gl.uniform1f(shaderProgram.uCanvasAspect, canvas.width / canvas.height)
+
+      if (shaderProgram.atlasTexture) {
+        gl.activeTexture(gl.TEXTURE1)
+        gl.bindTexture(gl.TEXTURE_2D, shaderProgram.atlasTexture)
+        gl.uniform1i(shaderProgram.uAtlas, 1)
+        gl.uniform1f(shaderProgram.uAtlasCols, shaderProgram.atlasCols)
+        gl.uniform1f(shaderProgram.uAtlasRows, shaderProgram.atlasRows)
+      }
 
       for (const def of options.shader.uniformSchema) {
         setParam(gl, shaderProgram.paramLocations.get(def.key) ?? null, def, options.values[def.key])
