@@ -252,9 +252,11 @@ export function createRenderer(canvas: HTMLCanvasElement, shaderModules: ShaderM
   // narrowing of `gl` across the closure this way.
   const setImage = (source: TexImageSource) => {
     gl.bindTexture(gl.TEXTURE_2D, texture)
-    // Images decode with a top-left origin; WebGL texture coords are
-    // bottom-left. Flip on upload so the image renders right-side up.
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+    // No UNPACK_FLIP_Y_WEBGL here — it's a no-op for ImageBitmap sources
+    // decoded from a file (confirmed empirically). The vertical flip needed
+    // to go from top-left-origin image data to WebGL's bottom-left texture
+    // coords is instead applied at bitmap creation time, via
+    // createImageBitmap(file, { imageOrientation: 'flipY' }) in App.tsx.
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)

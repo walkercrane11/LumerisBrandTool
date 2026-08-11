@@ -50,7 +50,14 @@ function App() {
   const loadFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return
     try {
-      const bitmap = await createImageBitmap(file)
+      // 'flipY' — NOT a workaround for EXIF (browsers apply EXIF
+      // orientation automatically regardless of this option; that's
+      // orthogonal). This is the fix for a real vertical-flip bug: WebGL's
+      // UNPACK_FLIP_Y_WEBGL pixelStorei flag is a no-op when the
+      // texImage2D source is an ImageBitmap decoded from a file (confirmed
+      // empirically — toggling it produced byte-identical renders). The
+      // flip has to happen here, at bitmap creation, instead.
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'flipY' })
       setImage(bitmap)
       setImageSize({ width: bitmap.width, height: bitmap.height })
       setFit(DEFAULT_FIT)
