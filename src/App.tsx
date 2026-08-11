@@ -50,7 +50,12 @@ function App() {
   const loadFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return
     try {
-      const bitmap = await createImageBitmap(file)
+      // Explicit, not relying on the browser default — createImageBitmap's
+      // handling of EXIF orientation has been inconsistent across browsers
+      // and versions. 'from-image' forces the tag to always be read and
+      // applied, so a photo isn't rendered mirrored/rotated relative to
+      // what the camera/app that produced it intended.
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
       setImage(bitmap)
       setImageSize({ width: bitmap.width, height: bitmap.height })
       setFit(DEFAULT_FIT)
