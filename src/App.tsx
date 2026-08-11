@@ -21,6 +21,7 @@ import { VectorLayer } from './VectorLayer'
 import { exportFilename } from './exportFilename'
 import { buildState, decodeStateFromHash, encodeStateToHash, resolveState, resolvePresetLook } from './state'
 import { PRESETS } from './presets'
+import { randomizeSchemaValues } from './randomize'
 
 interface DragOrigin {
   startX: number
@@ -222,6 +223,47 @@ function App() {
     setPresetId(preset.id)
   }
 
+  // "Back to an untreated look" — not a "start over" button. Canvas size
+  // and the uploaded image are left alone; only shader/vector/crop reset.
+  const handleReset = () => {
+    const noneShader = SHADER_MODULES.find((s) => s.id === 'none') ?? SHADER_MODULES[0]
+    const noneVector = VECTOR_MODULES.find((v) => v.id === 'none') ?? VECTOR_MODULES[0]
+    setShader(noneShader)
+    setShaderValues(defaultUniformValues(noneShader))
+    setVector(noneVector)
+    setVectorValues(defaultVectorValues(noneVector))
+    setFit(DEFAULT_FIT)
+    setPresetId('')
+  }
+
+  // Randomizes the whole look: a random shader with randomized params, a
+  // random vector from that shader's sanctioned list (§4.5 — always
+  // includes 'none') with its own randomized params. Canvas size and the
+  // uploaded image are untouched, same restriction as Reset/presets.
+  const handleRandomize = () => {
+    const nextShader = SHADER_MODULES[Math.floor(Math.random() * SHADER_MODULES.length)]
+    const nextShaderValues = {
+      ...defaultUniformValues(nextShader),
+      ...randomizeSchemaValues(nextShader.uniformSchema),
+    }
+
+    const compatibleIds = allowedVectorIds(nextShader.id)
+    const nextVectorId = compatibleIds[Math.floor(Math.random() * compatibleIds.length)]
+    const nextVector = VECTOR_MODULES.find((v) => v.id === nextVectorId) ?? VECTOR_MODULES[0]
+    const baseVectorValues = defaultVectorValues(nextVector)
+    const nextVectorValues = {
+      ...baseVectorValues,
+      ...(nextVector.randomizeValues ? nextVector.randomizeValues() : randomizeSchemaValues(nextVector.uniformSchema)),
+    }
+
+    setShader(nextShader)
+    setShaderValues(nextShaderValues)
+    setVector(nextVector)
+    setVectorValues(nextVectorValues)
+    setSeed(Math.floor(Math.random() * 1_000_000_000))
+    setPresetId('')
+  }
+
   // Dot/Square are seed-driven (§5) — shuffle just rerolls the seed.
   // Scribbles has no seed; it implements randomizeValues instead to get a
   // quick-iteration "give me a new look" button of its own.
@@ -347,6 +389,12 @@ function App() {
             Shuffle
           </button>
         )}
+        <button type="button" onClick={handleRandomize}>
+          Randomize
+        </button>
+        <button type="button" onClick={handleReset}>
+          Reset
+        </button>
         <button type="button" onClick={() => void handleCopyLink()}>
           {copyLinkLabel}
         </button>
