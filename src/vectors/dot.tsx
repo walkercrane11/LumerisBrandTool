@@ -21,7 +21,8 @@ function hash01(a: number, b: number, c: number): number {
 // param, and let the region be positionable. `coverage`/`spread`/`originX`/
 // `originY` are the result — coverage falls off linearly from `coverage` at
 // (originX, originY) to 0 at `spread` cells away, and each cell's inclusion
-// is a seeded coin-flip against that probability.
+// is a seeded coin-flip against that probability. `jitter` (position jitter
+// within a cell) was dropped after review — not wanted.
 export const dotVector: VectorModule = {
   id: 'dot',
   label: 'Dot',
@@ -29,7 +30,6 @@ export const dotVector: VectorModule = {
     // SPEC.md §3.3 — spacing is cells-across-canvas-width, not pixels.
     { key: 'cellsAcross', label: 'Cells across', type: 'float', unit: 'cellsAcross', min: 4, max: 60, step: 1, default: 20 },
     { key: 'radius', label: 'Radius', type: 'float', min: 0.05, max: 0.5, step: 0.01, default: 0.3 },
-    { key: 'jitter', label: 'Jitter', type: 'float', min: 0, max: 1, step: 0.01, default: 0.3 },
     { key: 'coverage', label: 'Coverage', type: 'float', min: 0, max: 1, step: 0.01, default: 0.6 },
     { key: 'spread', label: 'Spread', type: 'float', min: 0.05, max: 1.5, step: 0.01, default: 0.35 },
     { key: 'originX', label: 'Position X', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.5 },
@@ -45,7 +45,6 @@ export const dotVector: VectorModule = {
     const cols = Math.ceil(size.width / cellSize)
     const rows = Math.ceil(size.height / cellSize)
     const radius = Number(values.radius) * cellSize
-    const jitter = Number(values.jitter) * cellSize
     const coverage = Number(values.coverage)
     const spreadCells = Math.max(Number(values.spread), 0.001) * cellsAcross
     const originX = Number(values.originX) * size.width
@@ -66,9 +65,7 @@ export const dotVector: VectorModule = {
         if (probability <= 0) continue
         if (hash01(seed, gx, gy) >= probability) continue
 
-        const jx = (hash01(seed + 1, gx, gy) - 0.5) * jitter
-        const jy = (hash01(seed + 2, gx, gy) - 0.5) * jitter
-        circles.push(<circle key={`${gx}-${gy}`} cx={cx + jx} cy={cy + jy} r={radius} fill={color} />)
+        circles.push(<circle key={`${gx}-${gy}`} cx={cx} cy={cy} r={radius} fill={color} />)
       }
     }
 
