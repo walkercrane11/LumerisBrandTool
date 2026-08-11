@@ -56,9 +56,40 @@ function scribbleInstance(
   )
 }
 
+function randomAngle() {
+  return Math.round(Math.random() * 360)
+}
+
+function randomScale() {
+  // Same range as the scale1/scale2 slider (0.2–3), but biased toward the
+  // slider's middle — a uniform draw across the full range makes "too
+  // tiny to see" or "off the edge of the canvas" the common case, not the
+  // interesting one, for quick iteration.
+  return Math.round((0.5 + Math.random() * 1.5) * 100) / 100
+}
+
 export const scribblesVector: VectorModule = {
   id: 'scribbles',
   label: 'Scribbles',
+  // Randomizes placement (asset choice, position, rotation, scale, and
+  // whether the second slot is on) for quick iteration — Walker's request,
+  // since Scribbles has no seed to reroll the way Dot/Square's Shuffle
+  // does. Deliberately leaves color/opacity/blendMode alone: those are
+  // brand-adjacent choices (§4.1 color policy) the user is actively
+  // setting, not something "shuffle" should silently change.
+  randomizeValues: () => ({
+    asset1: ASSET_IDS[Math.floor(Math.random() * ASSET_IDS.length)],
+    x1: Math.round(Math.random() * 100) / 100,
+    y1: Math.round(Math.random() * 100) / 100,
+    rotation1: randomAngle(),
+    scale1: randomScale(),
+    enableSecond: Math.random() < 0.5,
+    asset2: ASSET_IDS[Math.floor(Math.random() * ASSET_IDS.length)],
+    x2: Math.round(Math.random() * 100) / 100,
+    y2: Math.round(Math.random() * 100) / 100,
+    rotation2: randomAngle(),
+    scale2: randomScale(),
+  }),
   uniformSchema: [
     { key: 'asset1', label: 'Asset 1', type: 'enum', options: ASSET_IDS, default: ASSET_IDS[0] },
     { key: 'x1', label: 'Position X 1', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.3 },
