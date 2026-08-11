@@ -69,29 +69,35 @@ body {
   min-height: 0;
 }
 
-/* position:relative wrapper that shrink-wraps the canvas (a replaced
-   element, sized via its aspect-ratio + max-width/max-height:100% below)
-   so the absolutely-positioned svg overlay can match its box exactly
-   without needing to duplicate that sizing logic itself. */
+/* The aspect-ratio (inline style, from `size`) lives here, not on the
+   canvas — canvas's own max-height:100% used to resolve against this
+   element's height, which was indeterminate (shrink-wrap-your-child is
+   circular), so it computed to "none" and the canvas rendered at full
+   native pixel size on tall canvases (Story 1080x1920) and overflowed
+   over the toolbar. aspect-ratio + max-width/max-height:100% here instead
+   resolves against .canvas-stage's definite height (it's a flex item of
+   that flex container), and canvas/svg just fill this box at 100%/100%. */
 .canvas-frame {
   position: relative;
+  max-width: 100%;
+  max-height: 100%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
-.canvas-frame canvas {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
+.canvas-frame canvas,
+.canvas-frame svg {
   display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-frame canvas {
   touch-action: none;
 }
 
 .canvas-frame svg {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   pointer-events: none;
 }
 

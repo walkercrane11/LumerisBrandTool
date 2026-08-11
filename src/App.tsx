@@ -277,7 +277,7 @@ function App() {
       <ParamControls schema={shader.uniformSchema} values={shaderValues} onChange={handleParamChange} />
       <ParamControls schema={vector.uniformSchema} values={vectorValues} onChange={handleVectorParamChange} />
       <main className="canvas-stage" onDrop={handleDrop} onDragOver={handleDragOver}>
-        <div className="canvas-frame">
+        <div className="canvas-frame" style={{ aspectRatio: `${size.width} / ${size.height}` }}>
           <canvas
             ref={canvasRef}
             className={imageSize ? 'draggable' : undefined}
