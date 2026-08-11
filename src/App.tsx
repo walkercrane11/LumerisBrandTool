@@ -176,7 +176,17 @@ function App() {
     setVectorValues((prev) => ({ ...prev, [key]: value }))
   }
 
-  const handleShuffleSeed = () => setSeed(Math.floor(Math.random() * 1_000_000_000))
+  // Dot/Square are seed-driven (§5) — shuffle just rerolls the seed.
+  // Scribbles has no seed; it implements randomizeValues instead to get a
+  // quick-iteration "give me a new look" button of its own.
+  const handleShuffleVector = () => {
+    if (vector.randomizeValues) {
+      const randomized = vector.randomizeValues()
+      setVectorValues((prev) => ({ ...prev, ...randomized }))
+    } else {
+      setSeed(Math.floor(Math.random() * 1_000_000_000))
+    }
+  }
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
@@ -259,7 +269,7 @@ function App() {
           </select>
         </label>
         {vector.id !== 'none' && (
-          <button type="button" onClick={handleShuffleSeed}>
+          <button type="button" onClick={handleShuffleVector}>
             Shuffle
           </button>
         )}

@@ -1,0 +1,142 @@
+import type { VectorModule } from '../types'
+import { SCRIBBLE_ASSETS } from './assets'
+
+// SPEC.md §4.4: "Scribbles — premade vector assets placed at varied
+// scale/rotation/position." §5.1's example state schema sketches a
+// density-scatter model (density/scaleMin/scaleMax), but there's no
+// reference comp for Scribbles to check that against (unlike Dot/Square),
+// and Walker's direction diverges from it: not a generated pattern at all
+// — one or two deliberately-placed instances, each independently
+// controlled (which asset, position, rotation), not seed-driven. So unlike
+// Dot/Square there's no randomness or seed involvement here; every
+// placement is an explicit user choice.
+//
+// "Slot 1" is always on; "slot 2" is gated by `enableSecond`, giving the
+// "one or two" Walker asked for. Each slot also gets its own `scale`
+// (added after Walker flagged it was missing from the original ask) —
+// multiplies TARGET_FRACTION below, so scale 1 means "this asset's longest
+// edge is 25% of canvas width," not an absolute size. Color/opacity/
+// blendMode are shared across both slots and override each asset's own
+// baked-in fill (SPEC.md §4.1 color policy — same as Dot/Square).
+const ASSET_IDS = SCRIBBLE_ASSETS.map((a) => a.id)
+
+// Longest edge of a placed scribble, as a fraction of canvas width, before
+// the user-facing `scale` multiplier is applied. Assets are varied native
+// sizes (513x28 down to 165x61) — this is what makes "one asset" and
+// another read as comparable sizes at scale 1, rather than wildly
+// different footprints.
+const TARGET_FRACTION = 0.25
+
+function scribbleInstance(
+  assetId: string,
+  x: number,
+  y: number,
+  rotationDeg: number,
+  scaleMultiplier: number,
+  size: { width: number; height: number },
+  color: string,
+) {
+  const asset = SCRIBBLE_ASSETS.find((a) => a.id === assetId) ?? SCRIBBLE_ASSETS[0]
+  const longestEdge = Math.max(asset.width, asset.height)
+  const scale = ((size.width * TARGET_FRACTION) / longestEdge) * scaleMultiplier
+  const cx = x * size.width
+  const cy = y * size.height
+
+  // Order matters — SVG transform lists apply right-to-left to the
+  // content: center the asset on its own midpoint first, then scale, then
+  // rotate, then move it to its placement point.
+  const transform = `translate(${cx} ${cy}) rotate(${rotationDeg}) scale(${scale}) translate(${-asset.width / 2} ${-asset.height / 2})`
+
+  return (
+    <g transform={transform}>
+      {asset.paths.map((d, i) => (
+        <path key={i} d={d} fill={color} />
+      ))}
+    </g>
+  )
+}
+
+function randomAngle() {
+  return Math.round(Math.random() * 360)
+}
+
+function randomScale() {
+  // Same range as the scale1/scale2 slider (0.2–3), but biased toward the
+  // slider's middle — a uniform draw across the full range makes "too
+  // tiny to see" or "off the edge of the canvas" the common case, not the
+  // interesting one, for quick iteration.
+  return Math.round((0.5 + Math.random() * 1.5) * 100) / 100
+}
+
+export const scribblesVector: VectorModule = {
+  id: 'scribbles',
+  label: 'Scribbles',
+  // Randomizes placement (asset choice, position, rotation, scale, and
+  // whether the second slot is on) for quick iteration — Walker's request,
+  // since Scribbles has no seed to reroll the way Dot/Square's Shuffle
+  // does. Deliberately leaves color/opacity/blendMode alone: those are
+  // brand-adjacent choices (§4.1 color policy) the user is actively
+  // setting, not something "shuffle" should silently change.
+  randomizeValues: () => ({
+    asset1: ASSET_IDS[Math.floor(Math.random() * ASSET_IDS.length)],
+    x1: Math.round(Math.random() * 100) / 100,
+    y1: Math.round(Math.random() * 100) / 100,
+    rotation1: randomAngle(),
+    scale1: randomScale(),
+    enableSecond: Math.random() < 0.5,
+    asset2: ASSET_IDS[Math.floor(Math.random() * ASSET_IDS.length)],
+    x2: Math.round(Math.random() * 100) / 100,
+    y2: Math.round(Math.random() * 100) / 100,
+    rotation2: randomAngle(),
+    scale2: randomScale(),
+  }),
+  uniformSchema: [
+    { key: 'asset1', label: 'Asset 1', type: 'enum', options: ASSET_IDS, default: ASSET_IDS[0] },
+    { key: 'x1', label: 'Position X 1', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.3 },
+    { key: 'y1', label: 'Position Y 1', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.5 },
+    { key: 'rotation1', label: 'Rotation 1', type: 'float', unit: 'degrees', min: 0, max: 360, step: 1, default: 0 },
+    { key: 'scale1', label: 'Scale 1', type: 'float', min: 0.2, max: 3, step: 0.05, default: 1 },
+    { key: 'enableSecond', label: 'Second asset', type: 'bool', default: false },
+    { key: 'asset2', label: 'Asset 2', type: 'enum', options: ASSET_IDS, default: ASSET_IDS[1] },
+    { key: 'x2', label: 'Position X 2', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.7 },
+    { key: 'y2', label: 'Position Y 2', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.5 },
+    { key: 'rotation2', label: 'Rotation 2', type: 'float', unit: 'degrees', min: 0, max: 360, step: 1, default: 0 },
+    { key: 'scale2', label: 'Scale 2', type: 'float', min: 0.2, max: 3, step: 0.05, default: 1 },
+    // One of the assets' own baked-in colors — brand palette still TBD
+    // (SPEC.md §9), same placeholder-swatch situation as every other
+    // color param in the app.
+    { key: 'color', label: 'Color', type: 'color', default: '#2253ED' },
+    { key: 'opacity', label: 'Opacity', type: 'float', min: 0, max: 1, step: 0.01, default: 1 },
+    { key: 'blendMode', label: 'Blend mode', type: 'enum', options: ['normal', 'multiply', 'screen', 'overlay'], default: 'normal' },
+  ],
+  render: ({ size, values }) => {
+    const color = String(values.color)
+    const opacity = Number(values.opacity)
+    const blendMode = String(values.blendMode)
+    const enableSecond = Boolean(values.enableSecond)
+
+    return (
+      <g opacity={opacity} style={{ mixBlendMode: blendMode as React.CSSProperties['mixBlendMode'] }}>
+        {scribbleInstance(
+          String(values.asset1),
+          Number(values.x1),
+          Number(values.y1),
+          Number(values.rotation1),
+          Number(values.scale1),
+          size,
+          color,
+        )}
+        {enableSecond &&
+          scribbleInstance(
+            String(values.asset2),
+            Number(values.x2),
+            Number(values.y2),
+            Number(values.rotation2),
+            Number(values.scale2),
+            size,
+            color,
+          )}
+      </g>
+    )
+  },
+}

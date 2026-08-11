@@ -22,6 +22,15 @@ export interface VectorModule {
   label: string
   uniformSchema: UniformDef[]
   render: (args: VectorRenderArgs) => ReactNode
+  // Optional — what the "Shuffle" button does for this vector style.
+  // Dot/Square have no implementation here; their placement is seed-driven
+  // (§5), so shuffling just rerolls the seed. Scribbles has no seed/
+  // randomness at all (every param is a deliberate user choice), so it
+  // implements this instead to get "quick iteration" random variations.
+  // Returns only the keys it wants to randomize — the caller merges the
+  // result into the existing values rather than replacing them wholesale,
+  // so e.g. Scribbles' color/opacity/blendMode survive a shuffle untouched.
+  randomizeValues?: () => Record<string, UniformValue>
 }
 
 export function defaultUniformValues(module: VectorModule): Record<string, UniformValue> {
