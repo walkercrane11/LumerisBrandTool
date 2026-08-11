@@ -1,22 +1,22 @@
 import type { ChangeEvent } from 'react'
 import type { UniformDef, UniformValue } from './shaders'
 
-interface ShaderControlsProps {
+interface ParamControlsProps {
   schema: UniformDef[]
   values: Record<string, UniformValue>
   onChange: (key: string, value: UniformValue) => void
 }
 
-// SPEC.md §4.1 — "adding a seventh shader should require no UI code." This
-// component is the only place that knows how to render a control per
-// UniformDef type; every shader module just declares its uniformSchema.
-export function ShaderControls({ schema, values, onChange }: ShaderControlsProps) {
+// SPEC.md §4.1 — "adding a seventh shader should require no UI code." Also
+// used for vector modules (vectors/types.ts), which follow the identical
+// uniformSchema-driven contract — one control renderer for both, not two.
+export function ParamControls({ schema, values, onChange }: ParamControlsProps) {
   if (schema.length === 0) return null
 
   return (
-    <div className="shader-controls">
+    <div className="param-controls">
       {schema.map((def) => (
-        <label key={def.key} className="shader-control">
+        <label key={def.key} className="param-control">
           {def.label}
           <UniformControl def={def} value={values[def.key]} onChange={onChange} />
         </label>

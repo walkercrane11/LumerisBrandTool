@@ -164,6 +164,8 @@ Three styles:
 - **Square pattern** — same, rectangles. Params add rotation.
 - **Scribbles** — premade vector assets placed at varied scale/rotation/position.
 
+**Dot — revised, same process as Pattern fill/Riso: checked `reference/dot-vector.png` before building.** The comp shows dots confined to an irregular region of the canvas, not a uniform full-bleed grid — the originally-listed params can't produce that. Walker's direction: coverage should be a real, tunable param, with control over where the pattern sits. Added: `coverage` (0–1, peak probability a cell gets a dot), `spread` (radius of influence, in cells), `originX`/`originY` (0–1 normalized, center of the coverage falloff). Per-cell inclusion and jitter are both seeded hashes of (seed, cellX, cellY) — deterministic, so a given seed reproduces the same placement (§5). Same reasoning as ASCII's added `contrast` and Riso's added `cellsAcross`: the actual visual need only became clear once checked against the reference.
+
 **Scribble asset pipeline** — decided:
 - ~10–20 assets, produced by Holden Ellis as art-directed SVGs.
 - Bundled inline in the build, versioned with the app. Updating the set requires a redeploy (low-friction on Cloudflare Pages).
