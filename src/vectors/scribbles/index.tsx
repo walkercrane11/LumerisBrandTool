@@ -12,21 +12,33 @@ import { SCRIBBLE_ASSETS } from './assets'
 // placement is an explicit user choice.
 //
 // "Slot 1" is always on; "slot 2" is gated by `enableSecond`, giving the
-// "one or two" Walker asked for. Color/opacity/blendMode are shared across
-// both slots and override each asset's own baked-in fill (SPEC.md §4.1
-// color policy — same as Dot/Square).
+// "one or two" Walker asked for. Each slot also gets its own `scale`
+// (added after Walker flagged it was missing from the original ask) —
+// multiplies TARGET_FRACTION below, so scale 1 means "this asset's longest
+// edge is 25% of canvas width," not an absolute size. Color/opacity/
+// blendMode are shared across both slots and override each asset's own
+// baked-in fill (SPEC.md §4.1 color policy — same as Dot/Square).
 const ASSET_IDS = SCRIBBLE_ASSETS.map((a) => a.id)
 
-// Longest edge of a placed scribble, as a fraction of canvas width. Not a
-// user-facing param (not asked for) — assets are varied native sizes
-// (513x28 down to 165x61), so this is what makes "one asset" and another
-// read as comparable sizes rather than wildly different footprints.
+// Longest edge of a placed scribble, as a fraction of canvas width, before
+// the user-facing `scale` multiplier is applied. Assets are varied native
+// sizes (513x28 down to 165x61) — this is what makes "one asset" and
+// another read as comparable sizes at scale 1, rather than wildly
+// different footprints.
 const TARGET_FRACTION = 0.25
 
-function scribbleInstance(assetId: string, x: number, y: number, rotationDeg: number, size: { width: number; height: number }, color: string) {
+function scribbleInstance(
+  assetId: string,
+  x: number,
+  y: number,
+  rotationDeg: number,
+  scaleMultiplier: number,
+  size: { width: number; height: number },
+  color: string,
+) {
   const asset = SCRIBBLE_ASSETS.find((a) => a.id === assetId) ?? SCRIBBLE_ASSETS[0]
   const longestEdge = Math.max(asset.width, asset.height)
-  const scale = (size.width * TARGET_FRACTION) / longestEdge
+  const scale = ((size.width * TARGET_FRACTION) / longestEdge) * scaleMultiplier
   const cx = x * size.width
   const cy = y * size.height
 
@@ -52,11 +64,13 @@ export const scribblesVector: VectorModule = {
     { key: 'x1', label: 'Position X 1', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.3 },
     { key: 'y1', label: 'Position Y 1', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.5 },
     { key: 'rotation1', label: 'Rotation 1', type: 'float', unit: 'degrees', min: 0, max: 360, step: 1, default: 0 },
+    { key: 'scale1', label: 'Scale 1', type: 'float', min: 0.2, max: 3, step: 0.05, default: 1 },
     { key: 'enableSecond', label: 'Second asset', type: 'bool', default: false },
     { key: 'asset2', label: 'Asset 2', type: 'enum', options: ASSET_IDS, default: ASSET_IDS[1] },
     { key: 'x2', label: 'Position X 2', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.7 },
     { key: 'y2', label: 'Position Y 2', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.5 },
     { key: 'rotation2', label: 'Rotation 2', type: 'float', unit: 'degrees', min: 0, max: 360, step: 1, default: 0 },
+    { key: 'scale2', label: 'Scale 2', type: 'float', min: 0.2, max: 3, step: 0.05, default: 1 },
     // One of the assets' own baked-in colors — brand palette still TBD
     // (SPEC.md §9), same placeholder-swatch situation as every other
     // color param in the app.
@@ -72,9 +86,25 @@ export const scribblesVector: VectorModule = {
 
     return (
       <g opacity={opacity} style={{ mixBlendMode: blendMode as React.CSSProperties['mixBlendMode'] }}>
-        {scribbleInstance(String(values.asset1), Number(values.x1), Number(values.y1), Number(values.rotation1), size, color)}
+        {scribbleInstance(
+          String(values.asset1),
+          Number(values.x1),
+          Number(values.y1),
+          Number(values.rotation1),
+          Number(values.scale1),
+          size,
+          color,
+        )}
         {enableSecond &&
-          scribbleInstance(String(values.asset2), Number(values.x2), Number(values.y2), Number(values.rotation2), size, color)}
+          scribbleInstance(
+            String(values.asset2),
+            Number(values.x2),
+            Number(values.y2),
+            Number(values.rotation2),
+            Number(values.scale2),
+            size,
+            color,
+          )}
       </g>
     )
   },

@@ -173,7 +173,7 @@ Three styles:
 - Bundled inline in the build (Vite `?raw` imports), versioned with the app. Updating the set requires a redeploy (low-friction on Cloudflare Pages).
 - **Normalization happens in code, not the source files** — revised from "assets must share a common viewBox" after Walker confirmed the delivered assets are varied dimensions and re-exporting them all to one artboard wasn't the right ask. Each asset's own viewBox is read at load time (`vectors/scribbles/assets.ts`) and its longest edge is scaled to a fixed fraction of canvas width at placement time, so "one asset" and another read as comparable sizes without touching the source SVGs.
 
-**Scribbles — placement model revised, no reference comp to check against (unlike Dot/Square).** §5's "seed drives placement" and the schema example below (density/scaleMin/scaleMax scatter) were the original plan, but Walker's actual direction was simpler and more deliberate: not a generated pattern, one or two explicitly-placed instances. "Slot 1" is always active; "slot 2" is gated by an `enableSecond` toggle. Each slot has its own asset picker, `x`/`y` position (0–1 normalized), and `rotation` (degrees) — all direct user choices, not seed-driven. `color`/`opacity`/`blendMode` are shared across both slots and override each asset's baked-in fill (§4.1 color policy, same as Dot/Square). No seed or randomness involved at all — the one vector style where that's true.
+**Scribbles — placement model revised, no reference comp to check against (unlike Dot/Square).** §5's "seed drives placement" and the schema example below (density/scaleMin/scaleMax scatter) were the original plan, but Walker's actual direction was simpler and more deliberate: not a generated pattern, one or two explicitly-placed instances. "Slot 1" is always active; "slot 2" is gated by an `enableSecond` toggle. Each slot has its own asset picker, `x`/`y` position (0–1 normalized), `rotation` (degrees), and `scale` (multiplies the code-side longest-edge normalization — added after Walker flagged it was missing from the first pass) — all direct user choices, not seed-driven. `color`/`opacity`/`blendMode` are shared across both slots and override each asset's baked-in fill (§4.1 color policy, same as Dot/Square). No seed or randomness involved at all — the one vector style where that's true.
 
 ### 4.5 Sanctioned shader × vector combinations — decided
 
@@ -215,8 +215,8 @@ A seed alone is insufficient — it reproduces stochastic placement but not the 
   },
   "vector": {
     "id": "scribbles",
-    "params": { "asset1": "scribble-01", "x1": 0.3, "y1": 0.5, "rotation1": 0,
-                "enableSecond": true, "asset2": "scribble-02", "x2": 0.7, "y2": 0.5, "rotation2": 90,
+    "params": { "asset1": "scribble-01", "x1": 0.3, "y1": 0.5, "rotation1": 0, "scale1": 1,
+                "enableSecond": true, "asset2": "scribble-02", "x2": 0.7, "y2": 0.5, "rotation2": 90, "scale2": 1.4,
                 "color": "#2253ED", "opacity": 0.9, "blendMode": "multiply" }
   }
 }
