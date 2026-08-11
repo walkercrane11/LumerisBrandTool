@@ -19,7 +19,8 @@ import {
 import { ParamControls } from './ParamControls'
 import { VectorLayer } from './VectorLayer'
 import { exportFilename } from './exportFilename'
-import { buildState, decodeStateFromHash, encodeStateToHash, resolveState } from './state'
+import { buildState, decodeStateFromHash, encodeStateToHash, resolveState, resolvePresetLook } from './state'
+import { PRESETS } from './presets'
 
 interface DragOrigin {
   startX: number
@@ -45,6 +46,11 @@ function App() {
   const [vectorValues, setVectorValues] = useState<Record<string, UniformValue>>(() =>
     defaultVectorValues(VECTOR_MODULES[0]),
   )
+  // Tracks which preset (if any) is applied, purely for the picker's own
+  // display — reselecting the same preset re-applies it (e.g. to discard
+  // param tweaks made since), and it's fine for this to go stale relative
+  // to manual edits; it's not a "locked mode."
+  const [presetId, setPresetId] = useState('')
   // SPEC.md §5 — seed drives stochastic placement so a preset reproduces
   // exactly. Persisting it across reloads is Phase 4 (state serialization);
   // for now it just needs to be stable within a session and regenerable.
@@ -203,6 +209,19 @@ function App() {
     setVectorValues((prev) => ({ ...prev, [key]: value }))
   }
 
+  // SPEC.md §2.4 — a preset is a look, applied to whatever image/canvas
+  // size/crop are already active; it only ever touches shader+vector.
+  const handlePresetChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const preset = PRESETS.find((p) => p.id === e.target.value)
+    if (!preset) return
+    const resolved = resolvePresetLook(preset)
+    setShader(resolved.shader)
+    setShaderValues(resolved.shaderValues)
+    setVector(resolved.vector)
+    setVectorValues(resolved.vectorValues)
+    setPresetId(preset.id)
+  }
+
   // Dot/Square are seed-driven (§5) — shuffle just rerolls the seed.
   // Scribbles has no seed; it implements randomizeValues instead to get a
   // quick-iteration "give me a new look" button of its own.
@@ -289,6 +308,19 @@ function App() {
             disabled={!imageSize}
             onChange={handleZoomChange}
           />
+        </label>
+        <label className="preset-select">
+          Preset
+          <select value={presetId} onChange={handlePresetChange}>
+            <option value="" disabled>
+              Choose a look…
+            </option>
+            {PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="shader-select">
           Shader

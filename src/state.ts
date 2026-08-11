@@ -75,6 +75,35 @@ export function resolveState(state: AppState): AppStateResolved {
   }
 }
 
+// SPEC.md §2.4/§5.2 — a preset is a *look*, applied to whatever image and
+// canvas size are already active. No canvas/fit/seed here, unlike AppState
+// — those are specific to a session/instance, not part of the reusable
+// look presets.ts composes.
+export interface PresetLook {
+  id: string
+  label: string
+  shader: { id: string; params: Record<string, UniformValue> }
+  vector: { id: string; params: Record<string, UniformValue> }
+}
+
+export interface ResolvedPresetLook {
+  shader: ShaderModule
+  shaderValues: Record<string, UniformValue>
+  vector: VectorModule
+  vectorValues: Record<string, UniformValue>
+}
+
+export function resolvePresetLook(preset: PresetLook): ResolvedPresetLook {
+  const shader = SHADER_MODULES.find((s) => s.id === preset.shader.id) ?? SHADER_MODULES[0]
+  const vector = VECTOR_MODULES.find((v) => v.id === preset.vector.id) ?? VECTOR_MODULES[0]
+  return {
+    shader,
+    shaderValues: { ...defaultUniformValues(shader), ...preset.shader.params },
+    vector,
+    vectorValues: { ...defaultVectorValues(vector), ...preset.vector.params },
+  }
+}
+
 async function readAllChunks(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
   const chunks: Uint8Array[] = []
   const reader = stream.getReader()
