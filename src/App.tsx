@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -18,6 +19,7 @@ import {
 import { ParamControls } from './ParamControls'
 import { VectorLayer } from './VectorLayer'
 import { exportFilename } from './exportFilename'
+import { buildState, decodeStateFromHash, encodeStateToHash, resolveState } from './state'
 
 interface DragOrigin {
   startX: number
@@ -54,6 +56,31 @@ function App() {
   const clampedFit = imageSize ? clampFit(fit, imageSize, size) : fit
 
   const [isEncodingAvif, setIsEncodingAvif] = useState(false)
+  const [copyLinkLabel, setCopyLinkLabel] = useState('Copy link')
+
+  // SPEC.md §5.2 — shareable state lives in the URL hash. Runs once on
+  // mount, not on every hash change (that's a "load a link", not a "sync
+  // state to the address bar" feature — location.hash is write-only from
+  // this app's side otherwise, updated by handleCopyLink below).
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    if (!hash) return
+    void (async () => {
+      try {
+        const decoded = await decodeStateFromHash(hash)
+        const resolved = resolveState(decoded)
+        setSizeId(resolved.size.id)
+        setFit(resolved.fit)
+        setShader(resolved.shader)
+        setShaderValues(resolved.shaderValues)
+        setVector(resolved.vector)
+        setVectorValues(resolved.vectorValues)
+        if (resolved.seed !== null) setSeed(resolved.seed)
+      } catch (err) {
+        console.error('Failed to load state from URL', err)
+      }
+    })()
+  }, [])
 
   const { setImage, exportPng, exportAvif } = useCanvasRenderer(
     canvasRef,
@@ -188,6 +215,21 @@ function App() {
     }
   }
 
+  const handleCopyLink = async () => {
+    const state = buildState({ size, fit: clampedFit, shader, shaderValues, vector, vectorValues, seed })
+    const hash = await encodeStateToHash(state)
+    const url = `${window.location.origin}${window.location.pathname}#${hash}`
+    window.history.replaceState(null, '', url)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopyLinkLabel('Copied!')
+    } catch (err) {
+      console.error('Failed to copy link to clipboard', err)
+      setCopyLinkLabel('Copy failed')
+    }
+    setTimeout(() => setCopyLinkLabel('Copy link'), 1500)
+  }
+
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -273,6 +315,9 @@ function App() {
             Shuffle
           </button>
         )}
+        <button type="button" onClick={() => void handleCopyLink()}>
+          {copyLinkLabel}
+        </button>
         <button type="button" disabled={!imageSize} onClick={() => void handleExportPng()}>
           Export PNG
         </button>
