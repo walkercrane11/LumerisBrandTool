@@ -258,7 +258,7 @@ function App() {
             ))}
           </select>
         </label>
-        {vector.id !== 'none' && (
+        {vector.id !== 'none' && vector.id !== 'scribbles' && (
           <button type="button" onClick={handleShuffleSeed}>
             Shuffle
           </button>
