@@ -1,24 +1,26 @@
 import type { VectorModule } from './types'
 import { coverageGridCells } from './coverageGrid'
 
-// SPEC.md §4.4 lists Dot's params as cells across, radius, jitter, color,
-// opacity, blend mode — a uniform full-bleed grid. reference/dot-vector.png
-// shows something different: dots confined to an irregular region of the
-// canvas, not spanning the whole thing. Walker's direction (asked directly
-// rather than guessed, per the established process): make coverage a real
-// param, and let the region be positionable. `coverage`/`spread`/`originX`/
-// `originY` are the result — coverage falls off linearly from `coverage` at
-// (originX, originY) to 0 at `spread` cells away, and each cell's inclusion
-// is a seeded coin-flip against that probability (coverageGrid.ts, shared
-// with Square). `jitter` (position jitter within a cell) was dropped after
-// review — not wanted.
-export const dotVector: VectorModule = {
-  id: 'dot',
-  label: 'Dot',
+// SPEC.md §4.4: "Square pattern — same [as Dot], rectangles. Params add
+// rotation." reference/square-vector.png shows something Dot's mechanism
+// alone doesn't produce, though: true bilateral mirror symmetry (left-right
+// and top-bottom independently, not diagonal/4-fold) — isolated squares
+// mirrored in all four corners, denser woven checkerboard toward the
+// center. Confirmed with Walker before building. coverageGrid.ts's
+// `mirror: true` option handles this: a cell and its reflection across the
+// origin's row/column share one inclusion decision instead of each being
+// an independent coin-flip, so the result is symmetric rather than merely
+// having a symmetric density field.
+//
+// `size` replaces Dot's `radius` (a radius doesn't fit a square) — side
+// length as a fraction of the cell.
+export const squareVector: VectorModule = {
+  id: 'square',
+  label: 'Square',
   uniformSchema: [
-    // SPEC.md §3.3 — spacing is cells-across-canvas-width, not pixels.
     { key: 'cellsAcross', label: 'Cells across', type: 'float', unit: 'cellsAcross', min: 4, max: 60, step: 1, default: 20 },
-    { key: 'radius', label: 'Radius', type: 'float', min: 0.05, max: 0.5, step: 0.01, default: 0.3 },
+    { key: 'size', label: 'Size', type: 'float', min: 0.05, max: 0.95, step: 0.01, default: 0.6 },
+    { key: 'rotation', label: 'Rotation', type: 'float', unit: 'degrees', min: 0, max: 90, step: 1, default: 0 },
     { key: 'coverage', label: 'Coverage', type: 'float', min: 0, max: 1, step: 0.01, default: 0.6 },
     { key: 'spread', label: 'Spread', type: 'float', min: 0.05, max: 1.5, step: 0.01, default: 0.35 },
     { key: 'originX', label: 'Position X', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.5 },
@@ -30,7 +32,8 @@ export const dotVector: VectorModule = {
   ],
   render: ({ size, seed, values }) => {
     const cellsAcross = Number(values.cellsAcross)
-    const radius = Number(values.radius) * (size.width / cellsAcross)
+    const sideLength = Number(values.size) * (size.width / cellsAcross)
+    const rotation = Number(values.rotation)
     const color = String(values.color)
     const opacity = Number(values.opacity)
     const blendMode = String(values.blendMode)
@@ -43,12 +46,21 @@ export const dotVector: VectorModule = {
       spread: Number(values.spread),
       originX: Number(values.originX),
       originY: Number(values.originY),
+      mirror: true,
     })
 
     return (
       <g opacity={opacity} style={{ mixBlendMode: blendMode as React.CSSProperties['mixBlendMode'] }}>
         {cells.map(({ cx, cy }) => (
-          <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={radius} fill={color} />
+          <rect
+            key={`${cx}-${cy}`}
+            x={cx - sideLength / 2}
+            y={cy - sideLength / 2}
+            width={sideLength}
+            height={sideLength}
+            fill={color}
+            transform={rotation ? `rotate(${rotation} ${cx} ${cy})` : undefined}
+          />
         ))}
       </g>
     )
