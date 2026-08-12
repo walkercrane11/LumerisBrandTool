@@ -142,6 +142,8 @@ The UI is generated from `uniformSchema`. Adding a seventh shader should require
 
 Params: cells across, contrast, rotation angle (a uniform rotation of the whole pattern coordinate space, not true per-cell jitter — randomly rotating a tiling pattern per-cell breaks it into visible seams), invert, and 10 band colors (bg+fg × 5 bands). The specific 5 patterns, their order, and the placeholder color palette are this build's choices, not a spec mandate — treat `reference/pattern.png` as directional, not pixel-prescriptive. Real band colors are still TBD pending the brand palette (§9).
 
+*3rd revision (QA pass, no reference comp for this part):* Walker asked for a finer top-end grid and two more pattern elements. `cellsAcross` max raised 80 → 200. Added two bands — Triangles and Herringbone, picked by Walker from a curated set since there's no comp to check against for these two specifically — inserted as bands 5 and 6, pushing the original band 5 (solid) to band 7 (14 band colors total now). The first triangle-pattern attempt (alternating diagonal cell splits) turned out visually indistinguishable from the existing stripes pattern once tiled — only caught by rendering it and zooming in, not from the GLSL alone — replaced with a self-contained triangle silhouette per cell (apex-up, half the cell filled) instead.
+
 **Multi-pass:**
 
 - **Riso** — the outlier. Riso character comes from channel separation into 2–3 ink layers, per-layer misregistration offset, and overprint (multiply) blending, plus grain. This cannot be a single fragment shader. Params: ink colors (2–3), separation mode, per-layer offset, grain amount, layer opacity.

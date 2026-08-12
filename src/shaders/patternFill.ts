@@ -10,7 +10,7 @@ import type { ShaderModule } from './types'
 // frequency, independent of luminance-sampling resolution) in favor of
 // procedural GLSL — no texture assets needed.
 //
-// 2nd revision (this one) — two more notes from Walker on the 1st pass:
+// 2nd revision — two more notes from Walker on the 1st pass:
 // - "strict grid": band assignment now samples luminance once per cell
 //   (mosaic-style, like Halftone/Dither/ASCII), not per-pixel. Band edges
 //   are blocky/grid-aligned now, not following the photo's smooth contours.
@@ -18,6 +18,13 @@ import type { ShaderModule } from './types'
 //   bg/fg color pair (10 colors total) instead of one shared fg/bg —
 //   closer to the reference comp's actual richness (it uses roughly two
 //   colors per tonal region, not one accent color throughout).
+//
+// 3rd revision (QA pass) — Walker asked for a finer top-end grid (cells
+// across max 80 -> 200) and two more pattern elements. No reference comp
+// for the two new ones (unlike everything else in this file), so picked
+// from a curated set Walker approved: triangles and herringbone. Inserted
+// as bands 5 and 6, pushing the former band5 (solid) to band7 — the other
+// four keep their existing keys/colors untouched.
 export const patternFillShader: ShaderModule = {
   id: 'pattern-fill',
   label: 'Pattern fill',
@@ -29,7 +36,7 @@ export const patternFillShader: ShaderModule = {
       type: 'float',
       unit: 'cellsAcross',
       min: 8,
-      max: 80,
+      max: 200,
       step: 1,
       default: 25,
     },
@@ -68,8 +75,12 @@ export const patternFillShader: ShaderModule = {
     { key: 'band3Fg', label: 'Band 3 (stripes) fg', type: 'color', default: '#4fa8d8' },
     { key: 'band4Bg', label: 'Band 4 (squares) bg', type: 'color', default: '#4a5a68' },
     { key: 'band4Fg', label: 'Band 4 (squares) fg', type: 'color', default: '#1f2b33' },
-    { key: 'band5Bg', label: 'Band 5 (solid) bg', type: 'color', default: '#2b0a08' },
-    { key: 'band5Fg', label: 'Band 5 (solid) fg', type: 'color', default: '#000000' },
+    { key: 'band5Bg', label: 'Band 5 (triangles) bg', type: 'color', default: '#3a4550' },
+    { key: 'band5Fg', label: 'Band 5 (triangles) fg', type: 'color', default: '#14181c' },
+    { key: 'band6Bg', label: 'Band 6 (herringbone) bg', type: 'color', default: '#241008' },
+    { key: 'band6Fg', label: 'Band 6 (herringbone) fg', type: 'color', default: '#0a0503' },
+    { key: 'band7Bg', label: 'Band 7 (solid) bg', type: 'color', default: '#2b0a08' },
+    { key: 'band7Fg', label: 'Band 7 (solid) fg', type: 'color', default: '#000000' },
   ],
   // Two coordinate grids, both canvas-relative per §3.3:
   // - cellCoord (cellsAcross resolution): the STRICT grid. One luminance
@@ -98,8 +109,12 @@ uniform vec3 uBand4Bg;
 uniform vec3 uBand4Fg;
 uniform vec3 uBand5Bg;
 uniform vec3 uBand5Fg;
+uniform vec3 uBand6Bg;
+uniform vec3 uBand6Fg;
+uniform vec3 uBand7Bg;
+uniform vec3 uBand7Fg;
 
-const float BANDS = 5.0;
+const float BANDS = 7.0;
 const float PATTERN_SUBDIV = 4.0;
 
 float checkerPattern(vec2 p) {
@@ -121,6 +136,31 @@ float smallSquaresPattern(vec2 p) {
   vec2 local = fract(p * 2.0) - 0.5;
   vec2 d = abs(local);
   return 1.0 - step(0.32, max(d.x, d.y));
+}
+
+// One upward-pointing triangle per cell (apex at top-center, base along
+// the bottom edge). A single diagonal split per cell reads as plain
+// stripes once tiled (checked empirically — an earlier alternating-
+// diagonal-split version was visually indistinguishable from
+// stripesPattern); a self-contained triangle silhouette per cell doesn't
+// have that ambiguity.
+float trianglesPattern(vec2 p) {
+  vec2 local = fract(p);
+  float halfWidthAtHeight = 0.5 * (1.0 - local.y);
+  return step(abs(local.x - 0.5), halfWidthAtHeight);
+}
+
+// Herringbone weave approximation: space divides into 2x2 blocks, each
+// block using one of two opposite diagonal stripe directions (forward or back slash),
+// picked by block parity — reads as a woven zigzag rather than a literal
+// mitered herringbone join, but distinct from the single-direction stripes
+// pattern and from the triangle tiling above.
+float herringbonePattern(vec2 p) {
+  vec2 blockCell = floor(p * 0.5);
+  float blockParity = mod(blockCell.x + blockCell.y, 2.0);
+  float diagA = step(0.5, fract(p.x + p.y));
+  float diagB = step(0.5, fract(p.x - p.y));
+  return mix(diagA, diagB, blockParity);
 }
 
 void main() {
@@ -163,10 +203,18 @@ void main() {
     coverage = smallSquaresPattern(p);
     bandBg = uBand4Bg;
     bandFg = uBand4Fg;
-  } else {
-    coverage = 1.0;
+  } else if (band < 4.5) {
+    coverage = trianglesPattern(p);
     bandBg = uBand5Bg;
     bandFg = uBand5Fg;
+  } else if (band < 5.5) {
+    coverage = herringbonePattern(p);
+    bandBg = uBand6Bg;
+    bandFg = uBand6Fg;
+  } else {
+    coverage = 1.0;
+    bandBg = uBand7Bg;
+    bandFg = uBand7Fg;
   }
 
   fragColor = vec4(mix(bandBg, bandFg, coverage), sampled.a);
