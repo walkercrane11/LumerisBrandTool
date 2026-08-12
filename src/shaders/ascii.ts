@@ -15,8 +15,9 @@ import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_
 const GLYPH_RAMP = ' .\'`^",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$'
 
 // QA pass — sectioned-scale toggle (sectionedScale.ts, shared with
-// Halftone/Pixelated/Dither): canvas splits into a fixed 2x2 grid, each
-// quadrant using its own cell size instead of one global one.
+// Halftone/Pixelated/Dither): canvas splits into a rows x cols grid, each
+// section's cell size interpolated between a low/high pair instead of one
+// global value.
 const CELLS_ACROSS_RANGE = { min: 10, max: 150, step: 1, default: 70 }
 
 // SPEC.md §4.2 — cells across, glyph set, fg/bg, gamma, invert; contrast

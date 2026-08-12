@@ -57,19 +57,37 @@ vec4 samplePrevPass(vec2 canvasUv) {
 }
 
 // QA pass — sectioned-scale toggle (Halftone/ASCII/Pixelated/Dither).
-// Picks the right cellsAcross-equivalent value for a fixed 2x2 grid of
-// canvas quadrants when sectioned is on, or just the single base value
-// when it's off. Takes the four section values as plain function
-// arguments, not uniforms declared here — only the shaders that actually
-// use this call it, each with its own uSectioned/uScaleTL/etc. uniforms;
-// shaders that don't reference this function never pay for it (unused
-// GLSL functions are optimized away same as unused uniforms).
-float sectionedScale(vec2 uv, bool sectioned, float base, float tl, float tr, float bl, float br) {
+// Picks the right cellsAcross-equivalent value for a user-controlled
+// rows x cols grid when sectioned is on, or just the single base value
+// when it's off. Each section's value is low/high interpolated by its
+// row/col position, per one of three directions (revised from an earlier
+// fixed 2x2/one-slider-per-quadrant version per Walker's follow-up QA).
+// Takes the section params as plain function arguments, not uniforms
+// declared here — only the shaders that actually use this call it, each
+// with its own uSectioned/uSectionRows/etc. uniforms; shaders that don't
+// reference this function never pay for it (unused GLSL functions are
+// optimized away same as unused uniforms).
+//
+// direction: 0 = left-right (low at left, high at right), 1 = top-bottom
+// (low at top, high at bottom), 2 = radial (low at center, high at edge).
+float sectionedScale(vec2 uv, bool sectioned, float base, int rows, int cols, int direction, float low, float high) {
   if (!sectioned) return base;
-  bool top = uv.y >= 0.5;
-  bool right = uv.x >= 0.5;
-  if (top) return right ? tr : tl;
-  return right ? br : bl;
+  float rowsF = float(max(rows, 1));
+  float colsF = float(max(cols, 1));
+  float cx = (floor(uv.x * colsF) + 0.5) / colsF;
+  float cy = (floor(uv.y * rowsF) + 0.5) / rowsF;
+
+  float t;
+  if (direction == 1) {
+    t = 1.0 - cy;
+  } else if (direction == 2) {
+    float dist = length(vec2(cx, cy) - vec2(0.5));
+    float maxDist = length(vec2(0.5));
+    t = clamp(dist / maxDist, 0.0, 1.0);
+  } else {
+    t = cx;
+  }
+  return mix(low, high, t);
 }
 `
 
