@@ -1,5 +1,32 @@
+/* QA pass — UI chrome colored from the locked brand palette (src/colors.ts
+   BRAND_PALETTE), not the browser's default light/dark UA colors. Tokens,
+   not colors sprinkled through the rules below, so the two themes (and any
+   future accent swap) stay a one-place edit. Hex values are duplicated
+   here rather than imported — colors.ts is TS, this is a separate CSS
+   file — keep the two in sync by hand if the palette changes.
+   Light: cream bg (#FFFAE9) / near-black text (#081011). Dark: inverted.
+   Border/hover tints are computed off the text color via color-mix()
+   rather than a separate hardcoded gray, so they track whichever theme is
+   active automatically. Accent is brand blue (#1836F0) in both themes —
+   it's the palette's clearest "interactive control" color: high contrast
+   against both cream and near-black, and unlike the reds already used as
+   content defaults elsewhere (Square vector, Riso CMY), it doesn't read as
+   a warning/danger color on a button. */
 :root {
   color-scheme: light dark;
+  --color-bg: #fffae9;
+  --color-text: #081011;
+  --color-accent: #1836f0;
+  --color-border: color-mix(in srgb, var(--color-text) 18%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--color-text) 35%, transparent);
+  --color-hover: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #081011;
+    --color-text: #fffae9;
+  }
 }
 
 * {
@@ -9,6 +36,8 @@
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 #root {
@@ -31,7 +60,7 @@ body {
   flex-shrink: 0;
   overflow-y: auto;
   padding: 16px;
-  border-right: 1px solid rgba(128, 128, 128, 0.3);
+  border-right: 1px solid var(--color-border-strong);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -43,7 +72,7 @@ body {
 }
 
 .panel-section {
-  border: 1px solid rgba(128, 128, 128, 0.25);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   /* No overflow:hidden here — it conflicts with the browser's native
      <details> open/close auto-sizing (confirmed empirically: with it set,
@@ -93,7 +122,7 @@ body {
 }
 
 .panel-section summary:hover {
-  background: rgba(128, 128, 128, 0.08);
+  background: var(--color-hover);
 }
 
 .panel-body {
@@ -122,6 +151,64 @@ body {
 .preset-select select,
 .upload input {
   width: 100%;
+}
+
+/* Native form controls (select/file input/buttons) themed to match the
+   panels around them instead of falling back to raw OS chrome — the
+   swatch pickers and slider fills already carry brand color, this just
+   brings the surrounding controls in line. accent-color (below) handles
+   checkbox/range native painting; it can't reach select/button/file
+   input, which need explicit background/border/color instead. */
+.sidebar select,
+.sidebar button,
+.sidebar input[type='file'] {
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.sidebar input[type='file']::file-selector-button {
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.sidebar button {
+  cursor: pointer;
+}
+
+.sidebar select:hover,
+.sidebar button:hover:not(:disabled),
+.sidebar input[type='file']:hover::file-selector-button {
+  background: var(--color-hover);
+}
+
+.sidebar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sidebar select:focus-visible,
+.sidebar button:focus-visible,
+.sidebar input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Native checkbox/range fill (bool params, every slider) — no way to
+   reach these via background/border like the controls above, accent-color
+   is the standard hook for tinting native form-control painting. */
+input[type='checkbox'],
+input[type='range'] {
+  accent-color: var(--color-accent);
 }
 
 .param-controls {
@@ -174,7 +261,7 @@ body {
 }
 
 .slider-value:hover:not(:disabled) {
-  background: rgba(128, 128, 128, 0.15);
+  background: var(--color-hover);
 }
 
 .slider-value:disabled {
@@ -184,7 +271,7 @@ body {
 
 .slider-value-input {
   background: transparent;
-  border: 1px solid rgba(128, 128, 128, 0.5);
+  border: 1px solid var(--color-border-strong);
   border-radius: 4px;
   padding: 1px 3px;
   color: inherit;
@@ -201,7 +288,7 @@ body {
   height: 22px;
   padding: 0;
   border-radius: 4px;
-  border: 1px solid rgba(128, 128, 128, 0.4);
+  border: 1px solid var(--color-border-strong);
   cursor: pointer;
 }
 
@@ -210,7 +297,7 @@ body {
 }
 
 .swatch[data-selected='true'] {
-  outline: 2px solid currentColor;
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
