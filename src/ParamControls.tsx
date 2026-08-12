@@ -1,5 +1,6 @@
 import type { ChangeEvent } from 'react'
 import type { UniformDef, UniformValue } from './shaders'
+import { BRAND_PALETTE } from './colors'
 
 interface ParamControlsProps {
   schema: UniformDef[]
@@ -75,15 +76,31 @@ function UniformControl({
           ))}
         </select>
       )
-    case 'color':
-      // Brand palette is still TBD (SPEC.md §9) — a native picker is a
-      // placeholder, not the swatch-locked control §4.1 calls for.
+    case 'color': {
+      // SPEC.md §4.1 — locked brand palette, not an arbitrary color input.
+      // Was a native <input type="color"> placeholder until the palette
+      // landed (SPEC.md §9); now the real swatch-picker the spec calls for.
+      // extraSwatches (e.g. Riso's traditional CMY) render after the brand
+      // set, with a small visual break so the two groups read as distinct.
+      const swatches = [...BRAND_PALETTE, ...(def.extraSwatches ?? [])]
       return (
-        <input
-          type="color"
-          value={String(value)}
-          onChange={(e) => onChange(def.key, e.target.value)}
-        />
+        <div className="swatch-picker" role="radiogroup">
+          {swatches.map((hex, i) => (
+            <button
+              key={hex}
+              type="button"
+              role="radio"
+              aria-checked={String(value).toLowerCase() === hex.toLowerCase()}
+              aria-label={hex}
+              className="swatch"
+              data-selected={String(value).toLowerCase() === hex.toLowerCase()}
+              data-group-start={i === BRAND_PALETTE.length ? 'true' : undefined}
+              style={{ background: hex }}
+              onClick={() => onChange(def.key, hex)}
+            />
+          ))}
+        </div>
       )
+    }
   }
 }

@@ -57,19 +57,19 @@ export const pixelatedShader: ShaderModule = {
       type: 'bool',
       default: false,
     },
-    // Placeholder swatches evoking reference/pixel.png's near-black/mint
-    // duotone — not brand-accurate, that's still TBD (SPEC.md §9).
+    // SPEC.md §9 — brand palette landed (colors.ts); near-black + bright
+    // yellow, a punchier duotone than the placeholder mint evoked.
     {
       key: 'bg',
       label: 'Duotone dark',
       type: 'color',
-      default: '#0a1a0a',
+      default: '#081011',
     },
     {
       key: 'fg',
       label: 'Duotone light',
       type: 'color',
-      default: '#c8f5c0',
+      default: '#FEFB53',
     },
   ],
   // SPEC.md §3.3 — cellsAcross is cells across the CANVAS width, so the

@@ -94,6 +94,12 @@ void main() {
 `
 }
 
+// Traditional process-printing cyan/magenta/yellow — the same values this
+// shader's ink defaults used before the brand palette landed. Offered as
+// extraSwatches on the ink color params (below) rather than restored as
+// the defaults, so both options are available side by side.
+const CMY_SWATCHES = ['#00AEEF', '#EC008C', '#FFF200']
+
 export const risoShader: ShaderModule = {
   id: 'riso',
   label: 'Riso',
@@ -144,12 +150,16 @@ export const risoShader: ShaderModule = {
       step: 0.05,
       default: 0.9,
     },
-    // Process-printing-standard cyan/magenta/yellow — a faithful default
-    // for full-color reconstruction in 'channels' mode. Not brand-accurate
-    // (still TBD from Holden Ellis, SPEC.md §9); swap freely.
-    { key: 'ink1Color', label: 'Ink 1', type: 'color', default: '#00aeef' },
-    { key: 'ink2Color', label: 'Ink 2', type: 'color', default: '#ec008c' },
-    { key: 'ink3Color', label: 'Ink 3', type: 'color', default: '#fff200' },
+    // SPEC.md §9 — brand palette landed (colors.ts). Defaults to on-brand
+    // blue/red/yellow, but Walker also asked for traditional process CMY
+    // available here specifically — real full-color reconstruction fidelity
+    // in 'channels' mode needs true cyan/magenta (each channel's inverse),
+    // which the brand palette doesn't have. `extraSwatches` appends them
+    // after the brand set for these three params only, not app-wide — the
+    // locked-palette policy (§4.1) still holds everywhere else.
+    { key: 'ink1Color', label: 'Ink 1', type: 'color', default: '#1836F0', extraSwatches: CMY_SWATCHES },
+    { key: 'ink2Color', label: 'Ink 2', type: 'color', default: '#FF453B', extraSwatches: CMY_SWATCHES },
+    { key: 'ink3Color', label: 'Ink 3', type: 'color', default: '#FEFB53', extraSwatches: CMY_SWATCHES },
   ],
   fragSource: LAYERS.map(risoPassSource),
 }

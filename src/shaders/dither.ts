@@ -50,17 +50,19 @@ export const ditherShader: ShaderModule = {
       step: 0.05,
       default: 1,
     },
+    // SPEC.md §9 — brand palette landed (colors.ts); near-black olive on
+    // cream, slightly warmer than Halftone's near-black for distinction.
     {
       key: 'fg',
       label: 'Foreground',
       type: 'color',
-      default: '#111111',
+      default: '#212100',
     },
     {
       key: 'bg',
       label: 'Background',
       type: 'color',
-      default: '#f4f1ea',
+      default: '#FFFAE9',
     },
   ],
   // SPEC.md §3.3 — cellsAcross is cells across the CANVAS width, same

@@ -50,17 +50,18 @@ export const halftoneShader: ShaderModule = {
       step: 0.05,
       default: 1,
     },
+    // SPEC.md §9 — brand palette landed (colors.ts); near-black on cream.
     {
       key: 'fg',
       label: 'Foreground',
       type: 'color',
-      default: '#111111',
+      default: '#081011',
     },
     {
       key: 'bg',
       label: 'Background',
       type: 'color',
-      default: '#f4f1ea',
+      default: '#FFFAE9',
     },
   ],
   // SPEC.md §3.3 — cellsAcross (dot pitch) is canvas-relative. The grid is

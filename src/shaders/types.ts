@@ -18,6 +18,12 @@ export interface UniformDef {
   // most shaders/vectors — ParamControls.tsx just always-shows a param
   // that doesn't declare one, same as before this existed.
   visibleWhen?: { key: string; equals: UniformValue }
+  // Extra swatches appended after the brand palette (colors.ts) for this
+  // specific color param only — e.g. Riso's ink colors also offer
+  // traditional process CMY, since that's a legitimate alternate look for
+  // a print-simulation shader, without opening every other color param in
+  // the app back up beyond the locked brand set (§4.1).
+  extraSwatches?: string[]
 }
 
 export type UniformValue = number | string | boolean

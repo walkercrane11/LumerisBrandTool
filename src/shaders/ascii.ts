@@ -75,17 +75,19 @@ export const asciiShader: ShaderModule = {
       type: 'bool',
       default: false,
     },
+    // SPEC.md §9 — brand palette landed (colors.ts); dark maroon on light
+    // sage, distinct from Halftone/Dither's near-black-on-cream pairing.
     {
       key: 'fg',
       label: 'Foreground',
       type: 'color',
-      default: '#111111',
+      default: '#530E06',
     },
     {
       key: 'bg',
       label: 'Background',
       type: 'color',
-      default: '#f4f1ea',
+      default: '#CBCF92',
     },
   ],
   // SPEC.md §3.3 — cellsAcross is canvas-relative, same square-cell approach

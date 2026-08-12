@@ -64,23 +64,26 @@ export const patternFillShader: ShaderModule = {
       type: 'bool',
       default: false,
     },
-    // Lightest to darkest band. Placeholder palette loosely evoking
-    // reference/pattern.png's colors — not brand-accurate, that's still
-    // TBD from Holden Ellis (SPEC.md §9).
-    { key: 'band1Bg', label: 'Band 1 (checker) bg', type: 'color', default: '#f4f1ea' },
-    { key: 'band1Fg', label: 'Band 1 (checker) fg', type: 'color', default: '#e8b94a' },
-    { key: 'band2Bg', label: 'Band 2 (dots) bg', type: 'color', default: '#c9a648' },
-    { key: 'band2Fg', label: 'Band 2 (dots) fg', type: 'color', default: '#d64545' },
-    { key: 'band3Bg', label: 'Band 3 (stripes) bg', type: 'color', default: '#8b7fd6' },
-    { key: 'band3Fg', label: 'Band 3 (stripes) fg', type: 'color', default: '#4fa8d8' },
-    { key: 'band4Bg', label: 'Band 4 (squares) bg', type: 'color', default: '#4a5a68' },
-    { key: 'band4Fg', label: 'Band 4 (squares) fg', type: 'color', default: '#1f2b33' },
-    { key: 'band5Bg', label: 'Band 5 (triangles) bg', type: 'color', default: '#3a4550' },
-    { key: 'band5Fg', label: 'Band 5 (triangles) fg', type: 'color', default: '#14181c' },
-    { key: 'band6Bg', label: 'Band 6 (herringbone) bg', type: 'color', default: '#241008' },
-    { key: 'band6Fg', label: 'Band 6 (herringbone) fg', type: 'color', default: '#0a0503' },
-    { key: 'band7Bg', label: 'Band 7 (solid) bg', type: 'color', default: '#2b0a08' },
-    { key: 'band7Fg', label: 'Band 7 (solid) fg', type: 'color', default: '#000000' },
+    // SPEC.md §9 — brand palette landed (colors.ts). Light bands stay
+    // high-key (cream/yellow, sage/olive), middle bands carry the two
+    // vivid accents (red, blue) for visual interest, dark bands move
+    // through the earthy/moody colors down to near-black at band 7 (whose
+    // bg is barely visible — that band's coverage is always 1.0, see
+    // fragSource — but still set to something reasonable).
+    { key: 'band1Bg', label: 'Band 1 (checker) bg', type: 'color', default: '#FFFAE9' },
+    { key: 'band1Fg', label: 'Band 1 (checker) fg', type: 'color', default: '#FEFB53' },
+    { key: 'band2Bg', label: 'Band 2 (dots) bg', type: 'color', default: '#CBCF92' },
+    { key: 'band2Fg', label: 'Band 2 (dots) fg', type: 'color', default: '#8A8800' },
+    { key: 'band3Bg', label: 'Band 3 (stripes) bg', type: 'color', default: '#FF453B' },
+    { key: 'band3Fg', label: 'Band 3 (stripes) fg', type: 'color', default: '#FFFAE9' },
+    { key: 'band4Bg', label: 'Band 4 (squares) bg', type: 'color', default: '#1836F0' },
+    { key: 'band4Fg', label: 'Band 4 (squares) fg', type: 'color', default: '#FEFB53' },
+    { key: 'band5Bg', label: 'Band 5 (triangles) bg', type: 'color', default: '#433209' },
+    { key: 'band5Fg', label: 'Band 5 (triangles) fg', type: 'color', default: '#CBCF92' },
+    { key: 'band6Bg', label: 'Band 6 (herringbone) bg', type: 'color', default: '#0E1F6A' },
+    { key: 'band6Fg', label: 'Band 6 (herringbone) fg', type: 'color', default: '#530E06' },
+    { key: 'band7Bg', label: 'Band 7 (solid) bg', type: 'color', default: '#212100' },
+    { key: 'band7Fg', label: 'Band 7 (solid) fg', type: 'color', default: '#081011' },
   ],
   // Two coordinate grids, both canvas-relative per §3.3:
   // - cellCoord (cellsAcross resolution): the STRICT grid. One luminance
