@@ -19,7 +19,10 @@ export const squareVector: VectorModule = {
   label: 'Square',
   uniformSchema: [
     { key: 'cellsAcross', label: 'Cells across', type: 'float', unit: 'cellsAcross', min: 4, max: 60, step: 1, default: 20 },
-    { key: 'size', label: 'Size', type: 'float', min: 0.05, max: 0.95, step: 0.01, default: 0.6 },
+    // max 1 (not 0.95) — at size 1, sideLength equals the cell width, so
+    // adjacent squares' edges exactly touch rather than leaving a gap.
+    // Walker's QA: the old 0.95 ceiling never quite closed that gap.
+    { key: 'size', label: 'Size', type: 'float', min: 0.05, max: 1, step: 0.01, default: 0.6 },
     { key: 'rotation', label: 'Rotation', type: 'float', unit: 'degrees', min: 0, max: 90, step: 1, default: 0 },
     { key: 'coverage', label: 'Coverage', type: 'float', min: 0, max: 1, step: 0.01, default: 0.6 },
     { key: 'spread', label: 'Spread', type: 'float', min: 0.05, max: 1.5, step: 0.01, default: 0.35 },
