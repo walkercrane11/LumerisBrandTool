@@ -2,8 +2,16 @@ import type { ShaderModule } from './types'
 import { createGlyphAtlasSource } from './glyphAtlas'
 
 // SPEC.md §4.2 — decided: standard ASCII character set, no T/O/M-specific
-// glyphs. Classic luminance-ordered ramp, sparsest (space) to densest (@).
-const GLYPH_RAMP = ' .:-=+*#%@'
+// glyphs. Classic 70-character luminance-ordered ramp (Paul Bourke's
+// grayscale set, widely used in ASCII-art converters), sparsest (space) to
+// densest ($) — the shader below maps low density to low index, so this
+// has to run sparse-to-dense, same direction as the original 10-char ramp;
+// it's usually quoted dense-to-sparse, and the reversed version rendered
+// inverted (bright regions in `$`/`@`, dark regions in space) until caught
+// by checking the actual render, not just the math. Walker's QA feedback
+// on the original 10-character ramp: too coarse — this gives 7x the
+// luminance resolution.
+const GLYPH_RAMP = ' .\'`^",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$'
 
 // SPEC.md §4.2 — cells across, glyph set, fg/bg, gamma, invert; contrast
 // added per Walker's feedback on #17 (updated in SPEC.md too). Only one
@@ -19,7 +27,13 @@ export const asciiShader: ShaderModule = {
     cols: GLYPH_RAMP.length,
     rows: 1,
     cellCount: GLYPH_RAMP.length,
-    createSource: createGlyphAtlasSource(GLYPH_RAMP),
+    // 32px cells, not the default 64px — at 70 glyphs, 64px cells would
+    // make the atlas 4480px wide, over the 4096px MAX_TEXTURE_SIZE floor
+    // some GPUs guarantee under WebGL2. 32px keeps it at 2240px, safely
+    // under any reasonable hardware limit, with no visible legibility loss
+    // (glyphs are bilinear-sampled up to whatever the on-canvas cell size
+    // ends up being anyway).
+    createSource: createGlyphAtlasSource(GLYPH_RAMP, 32),
   },
   uniformSchema: [
     {
