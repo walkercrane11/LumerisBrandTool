@@ -3,16 +3,20 @@ import { createGlyphAtlasSource } from './glyphAtlas'
 import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_EXPR } from './sectionedScale'
 
 // SPEC.md §4.2 — decided: standard ASCII character set, no T/O/M-specific
-// glyphs. Classic 70-character luminance-ordered ramp (Paul Bourke's
-// grayscale set, widely used in ASCII-art converters), sparsest (space) to
-// densest ($) — the shader below maps low density to low index, so this
-// has to run sparse-to-dense, same direction as the original 10-char ramp;
-// it's usually quoted dense-to-sparse, and the reversed version rendered
-// inverted (bright regions in `$`/`@`, dark regions in space) until caught
-// by checking the actual render, not just the math. Walker's QA feedback
-// on the original 10-character ramp: too coarse — this gives 7x the
-// luminance resolution.
-const GLYPH_RAMP = ' .\'`^",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$'
+// glyphs. Went through a 70-character luminance-ordered ramp (Paul
+// Bourke's grayscale set) before this; Walker's follow-up QA on that:
+// wanted a smaller set but more contrast between the darkest and lightest
+// points. The 70-char set's problem was the opposite of the original
+// 10-char ramp's — plenty of luminance resolution, but its densest glyph
+// (`$`) is still just ink strokes on a mostly-empty cell, so true blacks
+// never read as fully solid. Fix: the classic 10-char ramp, extended past
+// `@` with three Unicode block-shade glyphs (░▒▓) — light to dark shade —
+// so the dense end reads much closer to solid than any ASCII symbol can.
+// The fully solid block (█) was tried too but dropped per Walker's
+// review: too flat, reads as a solid color fill rather than a character.
+// Sparse to dense, same direction as before (the shader maps low density
+// to low index).
+const GLYPH_RAMP = ' .:-=+*#%@░▒▓'
 
 // QA pass — sectioned-scale toggle (sectionedScale.ts, shared with
 // Halftone/Pixelated/Dither): canvas splits into a rows x cols grid, each
@@ -34,13 +38,10 @@ export const asciiShader: ShaderModule = {
     cols: GLYPH_RAMP.length,
     rows: 1,
     cellCount: GLYPH_RAMP.length,
-    // 32px cells, not the default 64px — at 70 glyphs, 64px cells would
-    // make the atlas 4480px wide, over the 4096px MAX_TEXTURE_SIZE floor
-    // some GPUs guarantee under WebGL2. 32px keeps it at 2240px, safely
-    // under any reasonable hardware limit, with no visible legibility loss
-    // (glyphs are bilinear-sampled up to whatever the on-canvas cell size
-    // ends up being anyway).
-    createSource: createGlyphAtlasSource(GLYPH_RAMP, 32),
+    // Default 64px cells — at 13 glyphs the atlas is only 832px wide, well
+    // under the 4096px MAX_TEXTURE_SIZE floor, so no need for the 32px
+    // override the old 70-glyph ramp needed. Sharper glyphs as a result.
+    createSource: createGlyphAtlasSource(GLYPH_RAMP),
   },
   uniformSchema: [
     {
