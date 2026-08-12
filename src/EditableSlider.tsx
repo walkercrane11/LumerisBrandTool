@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 
 interface EditableSliderProps {
   value: number
@@ -23,6 +23,15 @@ export function EditableSlider({ value, min, max, step, integer, disabled, onCha
 
   const decimals = !integer && step < 1 ? Math.max(0, -Math.floor(Math.log10(step))) : 0
   const formatted = value.toFixed(decimals)
+
+  // QA pass — Walker wants the filled portion and the handle in two
+  // distinct brand colors, which native `accent-color` can't do (it paints
+  // both the same hue). index.css reads this custom property to build the
+  // filled/unfilled track as a background gradient; the actual colors live
+  // there, not here — this just supplies the one number CSS can't compute
+  // itself (the range input's own value, as a percent of its min/max).
+  const fillPercent = max > min ? ((value - min) / (max - min)) * 100 : 0
+  const sliderStyle = { '--slider-fill-percent': `${fillPercent}%` } as CSSProperties
 
   const commit = () => {
     setEditing(false)
@@ -57,6 +66,7 @@ export function EditableSlider({ value, min, max, step, integer, disabled, onCha
         step={step}
         value={value}
         disabled={disabled}
+        style={sliderStyle}
         onChange={(e) => onChange(integer ? Math.round(Number(e.target.value)) : Number(e.target.value))}
       />
       {editing ? (

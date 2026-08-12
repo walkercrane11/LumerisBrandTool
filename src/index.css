@@ -17,6 +17,8 @@
   --color-bg: #fffae9;
   --color-text: #081011;
   --color-accent: #1836f0;
+  --color-slider-fill: #cbcf92;
+  --color-slider-thumb: #8a8800;
   --color-border: color-mix(in srgb, var(--color-text) 18%, transparent);
   --color-border-strong: color-mix(in srgb, var(--color-text) 35%, transparent);
   --color-hover: color-mix(in srgb, var(--color-text) 8%, transparent);
@@ -156,9 +158,10 @@ body {
 /* Native form controls (select/file input/buttons) themed to match the
    panels around them instead of falling back to raw OS chrome — the
    swatch pickers and slider fills already carry brand color, this just
-   brings the surrounding controls in line. accent-color (below) handles
-   checkbox/range native painting; it can't reach select/button/file
-   input, which need explicit background/border/color instead. */
+   brings the surrounding controls in line. accent-color/custom range
+   styling (below) handles checkbox/range native painting; it can't reach
+   select/button/file input, which need explicit background/border/color
+   instead. */
 .sidebar select,
 .sidebar button,
 .sidebar input[type='file'] {
@@ -203,12 +206,77 @@ body {
   outline-offset: 1px;
 }
 
-/* Native checkbox/range fill (bool params, every slider) — no way to
-   reach these via background/border like the controls above, accent-color
-   is the standard hook for tinting native form-control painting. */
-input[type='checkbox'],
-input[type='range'] {
+/* Native checkbox fill (bool params) — accent-color is the standard hook
+   for tinting native form-control painting, no way to reach it via
+   background/border like the controls above. */
+input[type='checkbox'] {
   accent-color: var(--color-accent);
+}
+
+/* Range inputs (every slider, via EditableSlider.tsx) get their own full
+   custom track/thumb, not accent-color — Walker wants the filled portion
+   and the handle in two distinct colors, and accent-color can only paint
+   both the same hue. Cross-browser two-tone track needs different tricks
+   per engine:
+   - The unprefixed rule below removes native track rendering (appearance:
+     none) and paints the input's own background as a left-to-right
+     gradient, split at --slider-fill-percent (set inline by
+     EditableSlider.tsx from the input's actual value/min/max — CSS alone
+     can't read that). This is what Chrome/Safari use, since WebKit has no
+     pseudo-element for "the filled portion" the way Firefox does.
+   - Firefox's ::-moz-range-track/::-moz-range-progress do the same split
+     natively, so it ignores the gradient background and uses those
+     instead — the rules below are redundant, not conflicting, across the
+     two engines. */
+input[type='range'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to right,
+    var(--color-slider-fill) var(--slider-fill-percent, 0%),
+    var(--color-border-strong) var(--slider-fill-percent, 0%)
+  );
+  cursor: pointer;
+}
+
+input[type='range']:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-slider-thumb);
+  cursor: pointer;
+}
+
+input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-border-strong);
+}
+
+input[type='range']::-moz-range-progress {
+  height: 6px;
+  border-radius: 3px 0 0 3px;
+  background: var(--color-slider-fill);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-slider-thumb);
+  cursor: pointer;
 }
 
 .param-controls {
