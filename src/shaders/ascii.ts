@@ -10,11 +10,13 @@ import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_
 // 10-char ramp's — plenty of luminance resolution, but its densest glyph
 // (`$`) is still just ink strokes on a mostly-empty cell, so true blacks
 // never read as fully solid. Fix: the classic 10-char ramp, extended past
-// `@` with the four Unicode block-shade glyphs (░▒▓█) — light shade to a
-// fully solid block — so the dense end actually reaches 100% cell
-// coverage instead of asymptotically approaching it. Sparse to dense, same
-// direction as before (the shader maps low density to low index).
-const GLYPH_RAMP = ' .:-=+*#%@░▒▓█'
+// `@` with three Unicode block-shade glyphs (░▒▓) — light to dark shade —
+// so the dense end reads much closer to solid than any ASCII symbol can.
+// The fully solid block (█) was tried too but dropped per Walker's
+// review: too flat, reads as a solid color fill rather than a character.
+// Sparse to dense, same direction as before (the shader maps low density
+// to low index).
+const GLYPH_RAMP = ' .:-=+*#%@░▒▓'
 
 // QA pass — sectioned-scale toggle (sectionedScale.ts, shared with
 // Halftone/Pixelated/Dither): canvas splits into a rows x cols grid, each
@@ -36,7 +38,7 @@ export const asciiShader: ShaderModule = {
     cols: GLYPH_RAMP.length,
     rows: 1,
     cellCount: GLYPH_RAMP.length,
-    // Default 64px cells — at 14 glyphs the atlas is only 896px wide, well
+    // Default 64px cells — at 13 glyphs the atlas is only 832px wide, well
     // under the 4096px MAX_TEXTURE_SIZE floor, so no need for the 32px
     // override the old 70-glyph ramp needed. Sharper glyphs as a result.
     createSource: createGlyphAtlasSource(GLYPH_RAMP),
