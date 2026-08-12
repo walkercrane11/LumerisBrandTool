@@ -4,6 +4,17 @@ import type { ShaderModule } from './types'
 // sample mode, optional posterize levels. Sample mode is genuinely binary
 // (spec text: "block average OR nearest sample"), so it's a bool rather
 // than reaching for the enum type — see SPEC.md §4.1's `options` note.
+//
+// QA pass — Walker wants color-scheme control, referencing reference/
+// pixel.png (a duotone: near-black background, light mint foreground, not
+// full-color pixelation). Confirmed with Walker: a simple 2-color duotone,
+// same fg/bg pattern Dither/Halftone/ASCII already have. `duotone` is a
+// new toggle (default false — existing full-color behavior is unchanged
+// when off, no regression for anyone already using this shader).
+// `posterizeLevels` does double duty as the duotone tone-step count when
+// duotone is on, rather than adding a redundant third param — the existing
+// RGB posterize step (when >1) already discretizes the block color before
+// duotone recoloring reads its luminance, so the two compose naturally.
 export const pixelatedShader: ShaderModule = {
   id: 'pixelated',
   label: 'Pixelated',
@@ -34,6 +45,26 @@ export const pixelatedShader: ShaderModule = {
       step: 1,
       default: 0,
     },
+    {
+      key: 'duotone',
+      label: 'Duotone',
+      type: 'bool',
+      default: false,
+    },
+    // Placeholder swatches evoking reference/pixel.png's near-black/mint
+    // duotone — not brand-accurate, that's still TBD (SPEC.md §9).
+    {
+      key: 'bg',
+      label: 'Duotone dark',
+      type: 'color',
+      default: '#0a1a0a',
+    },
+    {
+      key: 'fg',
+      label: 'Duotone light',
+      type: 'color',
+      default: '#c8f5c0',
+    },
   ],
   // SPEC.md §3.3 — cellsAcross is cells across the CANVAS width, so the
   // block grid is built from vUv (raw canvas-space UV), not from texUv —
@@ -43,6 +74,9 @@ export const pixelatedShader: ShaderModule = {
 uniform float uCellsAcross;
 uniform bool uAverageSample;
 uniform int uPosterizeLevels;
+uniform bool uDuotone;
+uniform vec3 uBg;
+uniform vec3 uFg;
 
 void main() {
   vec2 cellSize = vec2(1.0 / uCellsAcross, uCanvasAspect / uCellsAcross);
@@ -67,6 +101,11 @@ void main() {
   if (uPosterizeLevels > 1) {
     float levels = float(uPosterizeLevels);
     color.rgb = clamp(floor(color.rgb * levels) / (levels - 1.0), 0.0, 1.0);
+  }
+
+  if (uDuotone) {
+    float luminance = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+    color.rgb = mix(uBg, uFg, luminance);
   }
 
   fragColor = color;

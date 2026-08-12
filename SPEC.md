@@ -126,7 +126,7 @@ The UI is generated from `uniformSchema`. Adding a seventh shader should require
 
 **Per-pixel (single pass, straightforward):**
 
-- **Pixelated** — block average or nearest sample. Params: cells across, sample mode, optional posterize levels.
+- **Pixelated** — block average or nearest sample. Params: cells across, sample mode, optional posterize levels, plus **duotone** (QA pass — Walker wanted color-scheme control, referencing `reference/pixel.png`'s near-black/mint duotone rather than full-color pixelation). `duotone` toggle + `fg`/`bg` colors; when on, the existing `posterizeLevels` param doubles as the duotone tone-step count (quantize, then map along the bg->fg gradient) rather than adding a redundant third param. Off by default — no change to prior behavior.
 - **Dither** — see caveat below. Params: matrix type, levels, palette, contrast, cells across.
 - **Halftone** — dot pitch, dot shape (circle / square / line), screen angle, contrast, fg/bg. Optional multi-angle CMYK variant.
 
