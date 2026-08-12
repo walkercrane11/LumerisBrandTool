@@ -84,20 +84,18 @@ export const patternFillShader: ShaderModule = {
     // color — bands 1-5 render their SVGs as designed.
     { key: 'band6Color', label: 'Band 6 (solid) color', type: 'color', default: '#081011' },
   ],
-  // Two coordinate grids, both canvas-relative per §3.3:
-  // - cellCoord (cellsAcross resolution): the STRICT grid. One luminance
-  //   sample and one band decision per cell — the whole cell renders
-  //   uniformly, mosaic-style.
-  // - patternCoord (cellsAcross * PATTERN_SUBDIV): finer, purely for the
-  //   pattern's own texture, so each band cell shows several repeats of
-  //   its pattern (a mini checkerboard, a few dots, etc.) rather than at
-  //   most one shape per cell. fract() of that coordinate is the atlas
-  //   sample's local UV within its cell — the same tiling trick the old
-  //   procedural pattern functions did with fract(p) internally.
+  // One coordinate grid now, canvas-relative per §3.3: cellCoord
+  // (cellsAcross resolution) drives both the luminance sample/band
+  // decision AND the pattern placement — one atlas motif fills each strict
+  // cell exactly, no subdivision. (Earlier revision sampled the atlas at a
+  // finer subdivided grid so each cell showed several repeats of its
+  // pattern; Walker's QA on that: he wants one instance per cell, not a
+  // packed 4x4 of it.)
   //
-  // rotationJitter rotates patternCoord by a fixed angle (not a per-cell
-  // random jitter) — randomly rotating a tiling pattern per-cell breaks it
-  // into visible seams, so this is a uniform "pattern angle" instead.
+  // rotationJitter rotates the pattern coordinate by a fixed angle (not a
+  // per-cell random jitter) — randomly rotating a tiling pattern per-cell
+  // breaks it into visible seams, so this is a uniform "pattern angle"
+  // instead.
   fragSource: `
 uniform float uCellsAcross;
 uniform float uContrast;
@@ -107,7 +105,6 @@ uniform vec3 uBand6Color;
 
 const float BANDS = 6.0;
 const float PATTERN_COUNT = 5.0;
-const float PATTERN_SUBDIV = 4.0;
 
 void main() {
   vec2 cellSize = vec2(1.0 / uCellsAcross, uCanvasAspect / uCellsAcross);
@@ -124,7 +121,7 @@ void main() {
 
   float band = min(floor(density * BANDS), BANDS - 1.0);
 
-  vec2 patternRaw = (vUv / cellSize) * PATTERN_SUBDIV;
+  vec2 patternRaw = vUv / cellSize;
   float angle = uRotationJitter * radians(45.0);
   float ca = cos(angle);
   float sa = sin(angle);
