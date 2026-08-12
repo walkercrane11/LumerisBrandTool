@@ -144,12 +144,15 @@ export const risoShader: ShaderModule = {
       step: 0.05,
       default: 0.9,
     },
-    // Process-printing-standard cyan/magenta/yellow — a faithful default
-    // for full-color reconstruction in 'channels' mode. Not brand-accurate
-    // (still TBD from Holden Ellis, SPEC.md §9); swap freely.
-    { key: 'ink1Color', label: 'Ink 1', type: 'color', default: '#00aeef' },
-    { key: 'ink2Color', label: 'Ink 2', type: 'color', default: '#ec008c' },
-    { key: 'ink3Color', label: 'Ink 3', type: 'color', default: '#fff200' },
+    // SPEC.md §9 — brand palette landed (colors.ts). Blue/red/yellow, not
+    // process-printing cyan/magenta — trades a bit of 'channels' mode's
+    // full-color reconstruction fidelity (true CMY inverts each RGB
+    // channel more cleanly) for an on-brand default; still a full ink set
+    // spanning the color wheel, and every value is swap-able via the
+    // swatch picker regardless.
+    { key: 'ink1Color', label: 'Ink 1', type: 'color', default: '#1836F0' },
+    { key: 'ink2Color', label: 'Ink 2', type: 'color', default: '#FF453B' },
+    { key: 'ink3Color', label: 'Ink 3', type: 'color', default: '#FEFB53' },
   ],
   fragSource: LAYERS.map(risoPassSource),
 }

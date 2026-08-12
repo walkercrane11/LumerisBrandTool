@@ -1,5 +1,6 @@
 import type { ChangeEvent } from 'react'
 import type { UniformDef, UniformValue } from './shaders'
+import { BRAND_PALETTE } from './colors'
 
 interface ParamControlsProps {
   schema: UniformDef[]
@@ -76,14 +77,25 @@ function UniformControl({
         </select>
       )
     case 'color':
-      // Brand palette is still TBD (SPEC.md §9) — a native picker is a
-      // placeholder, not the swatch-locked control §4.1 calls for.
+      // SPEC.md §4.1 — locked brand palette, not an arbitrary color input.
+      // Was a native <input type="color"> placeholder until the palette
+      // landed (SPEC.md §9); now the real swatch-picker the spec calls for.
       return (
-        <input
-          type="color"
-          value={String(value)}
-          onChange={(e) => onChange(def.key, e.target.value)}
-        />
+        <div className="swatch-picker" role="radiogroup">
+          {BRAND_PALETTE.map((hex) => (
+            <button
+              key={hex}
+              type="button"
+              role="radio"
+              aria-checked={String(value).toLowerCase() === hex.toLowerCase()}
+              aria-label={hex}
+              className="swatch"
+              data-selected={String(value).toLowerCase() === hex.toLowerCase()}
+              style={{ background: hex }}
+              onClick={() => onChange(def.key, hex)}
+            />
+          ))}
+        </div>
       )
   }
 }

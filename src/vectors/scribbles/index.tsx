@@ -102,10 +102,9 @@ export const scribblesVector: VectorModule = {
     { key: 'y2', label: 'Position Y 2', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.5 },
     { key: 'rotation2', label: 'Rotation 2', type: 'float', unit: 'degrees', min: 0, max: 360, step: 1, default: 0 },
     { key: 'scale2', label: 'Scale 2', type: 'float', min: 0.2, max: 3, step: 0.05, default: 1 },
-    // One of the assets' own baked-in colors — brand palette still TBD
-    // (SPEC.md §9), same placeholder-swatch situation as every other
-    // color param in the app.
-    { key: 'color', label: 'Color', type: 'color', default: '#2253ED' },
+    // SPEC.md §9 — brand palette landed (colors.ts); closest match to the
+    // assets' own baked-in blue.
+    { key: 'color', label: 'Color', type: 'color', default: '#1836F0' },
     { key: 'opacity', label: 'Opacity', type: 'float', min: 0, max: 1, step: 0.01, default: 1 },
     { key: 'blendMode', label: 'Blend mode', type: 'enum', options: ['normal', 'multiply', 'screen', 'overlay'], default: 'normal' },
   ],

@@ -23,8 +23,8 @@ export const dotVector: VectorModule = {
     { key: 'spread', label: 'Spread', type: 'float', min: 0.05, max: 1.5, step: 0.01, default: 0.35 },
     { key: 'originX', label: 'Position X', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.5 },
     { key: 'originY', label: 'Position Y', type: 'float', unit: 'normalized', min: 0, max: 1, step: 0.01, default: 0.5 },
-    // Brand palette still TBD (SPEC.md §9) — placeholder swatch, not final.
-    { key: 'color', label: 'Color', type: 'color', default: '#F4E409' },
+    // SPEC.md §9 — brand palette landed (colors.ts).
+    { key: 'color', label: 'Color', type: 'color', default: '#FEFB53' },
     { key: 'opacity', label: 'Opacity', type: 'float', min: 0, max: 1, step: 0.01, default: 1 },
     { key: 'blendMode', label: 'Blend mode', type: 'enum', options: ['normal', 'multiply', 'screen', 'overlay'], default: 'normal' },
   ],
