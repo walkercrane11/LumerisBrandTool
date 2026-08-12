@@ -1,4 +1,5 @@
 import type { ShaderModule } from './types'
+import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_EXPR } from './sectionedScale'
 
 // SPEC.md §4.2 — "block average or nearest sample." Params: cells across,
 // sample mode, optional posterize levels. Sample mode is genuinely binary
@@ -15,6 +16,12 @@ import type { ShaderModule } from './types'
 // duotone is on, rather than adding a redundant third param — the existing
 // RGB posterize step (when >1) already discretizes the block color before
 // duotone recoloring reads its luminance, so the two compose naturally.
+//
+// QA pass — sectioned-scale toggle (sectionedScale.ts, shared with ASCII/
+// Halftone/Dither): canvas splits into a fixed 2x2 grid, each quadrant
+// using its own block size instead of one global one.
+const CELLS_ACROSS_RANGE = { min: 4, max: 300, step: 1, default: 60 }
+
 export const pixelatedShader: ShaderModule = {
   id: 'pixelated',
   label: 'Pixelated',
@@ -25,11 +32,10 @@ export const pixelatedShader: ShaderModule = {
       label: 'Block size',
       type: 'float',
       unit: 'cellsAcross',
-      min: 4,
-      max: 300,
-      step: 1,
-      default: 60,
+      ...CELLS_ACROSS_RANGE,
+      visibleWhen: { key: 'sectioned', equals: false },
     },
+    ...sectionedScaleUniforms(CELLS_ACROSS_RANGE),
     {
       key: 'averageSample',
       label: 'Average sample',
@@ -72,6 +78,7 @@ export const pixelatedShader: ShaderModule = {
   // image's crop/pan/zoom state. uCanvasAspect keeps blocks square.
   fragSource: `
 uniform float uCellsAcross;
+${SECTIONED_SCALE_GLSL_UNIFORMS}
 uniform bool uAverageSample;
 uniform int uPosterizeLevels;
 uniform bool uDuotone;
@@ -79,7 +86,8 @@ uniform vec3 uBg;
 uniform vec3 uFg;
 
 void main() {
-  vec2 cellSize = vec2(1.0 / uCellsAcross, uCanvasAspect / uCellsAcross);
+  float cellsAcross = ${SECTIONED_SCALE_EXPR};
+  vec2 cellSize = vec2(1.0 / cellsAcross, uCanvasAspect / cellsAcross);
   vec2 cellCoord = floor(vUv / cellSize);
   vec2 cellCenter = (cellCoord + 0.5) * cellSize;
 

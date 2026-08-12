@@ -111,6 +111,7 @@ interface UniformDef {
   min?: number; max?: number; step?: number;
   options?: string[];             // required when type is 'enum'
   default: number | string | boolean;
+  visibleWhen?: { key: string; equals: UniformValue }; // added for sectioned-scale (§4.2 QA pass)
 }
 ```
 
@@ -123,6 +124,8 @@ The UI is generated from `uniformSchema`. Adding a seventh shader should require
 **Color policy — decided:** all `color` typed uniforms (shader fg/bg/ink, vector fill) are constrained to a locked brand palette, not a free color picker. Consistent with "no raw parameter editing outside sanctioned ranges" (§1). `uniformSchema` color fields should resolve to a swatch picker over the brand set, not an arbitrary color input. Brand palette values: **TBD** — need swatches from Holden Ellis before Phase 0 comps.
 
 ### 4.2 The six shaders are not homogeneous
+
+**Sectioned scale — QA pass, applies to Pixelated/Dither/Halftone/ASCII.** Walker asked for a toggle that slices the canvas into sections, using a different scale of the effect per section. Confirmed as a fixed 2x2 grid (4 quadrants), one scale slider per quadrant. Added a `visibleWhen` field to `UniformDef` (§4.1's contract) so the single `cellsAcross` slider and the four per-quadrant ones don't both show at once — only one set is visible depending on the `sectioned` toggle. Shared implementation: `shaders/sectionedScale.ts` (the uniformSchema entries) and a `sectionedScale()` GLSL helper in the shader preamble (`gl/renderer.ts`) that picks the right value for whichever quadrant a fragment falls in. Off by default — no change to prior behavior for any of the four shaders.
 
 **Per-pixel (single pass, straightforward):**
 

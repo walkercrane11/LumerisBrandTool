@@ -1,5 +1,6 @@
 import type { ShaderModule } from './types'
 import { createGlyphAtlasSource } from './glyphAtlas'
+import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_EXPR } from './sectionedScale'
 
 // SPEC.md §4.2 — decided: standard ASCII character set, no T/O/M-specific
 // glyphs. Classic 70-character luminance-ordered ramp (Paul Bourke's
@@ -12,6 +13,11 @@ import { createGlyphAtlasSource } from './glyphAtlas'
 // on the original 10-character ramp: too coarse — this gives 7x the
 // luminance resolution.
 const GLYPH_RAMP = ' .\'`^",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$'
+
+// QA pass — sectioned-scale toggle (sectionedScale.ts, shared with
+// Halftone/Pixelated/Dither): canvas splits into a fixed 2x2 grid, each
+// quadrant using its own cell size instead of one global one.
+const CELLS_ACROSS_RANGE = { min: 10, max: 150, step: 1, default: 70 }
 
 // SPEC.md §4.2 — cells across, glyph set, fg/bg, gamma, invert; contrast
 // added per Walker's feedback on #17 (updated in SPEC.md too). Only one
@@ -41,11 +47,10 @@ export const asciiShader: ShaderModule = {
       label: 'Cell size',
       type: 'float',
       unit: 'cellsAcross',
-      min: 10,
-      max: 150,
-      step: 1,
-      default: 70,
+      ...CELLS_ACROSS_RANGE,
+      visibleWhen: { key: 'sectioned', equals: false },
     },
+    ...sectionedScaleUniforms(CELLS_ACROSS_RANGE),
     {
       key: 'gamma',
       label: 'Gamma',
@@ -89,6 +94,7 @@ export const asciiShader: ShaderModule = {
   // user-editable — they describe the texture, not a tunable parameter.
   fragSource: `
 uniform float uCellsAcross;
+${SECTIONED_SCALE_GLSL_UNIFORMS}
 uniform float uGamma;
 uniform float uContrast;
 uniform bool uInvert;
@@ -96,7 +102,8 @@ uniform vec3 uFg;
 uniform vec3 uBg;
 
 void main() {
-  vec2 cellSize = vec2(1.0 / uCellsAcross, uCanvasAspect / uCellsAcross);
+  float cellsAcross = ${SECTIONED_SCALE_EXPR};
+  vec2 cellSize = vec2(1.0 / cellsAcross, uCanvasAspect / cellsAcross);
   vec2 cellCoord = floor(vUv / cellSize);
   vec2 cellLocal = fract(vUv / cellSize);
   vec2 cellCenter = (cellCoord + 0.5) * cellSize;

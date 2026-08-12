@@ -55,6 +55,22 @@ vec4 sampleImage(vec2 canvasUv) {
 vec4 samplePrevPass(vec2 canvasUv) {
   return texture(uPrevPass, canvasUv);
 }
+
+// QA pass — sectioned-scale toggle (Halftone/ASCII/Pixelated/Dither).
+// Picks the right cellsAcross-equivalent value for a fixed 2x2 grid of
+// canvas quadrants when sectioned is on, or just the single base value
+// when it's off. Takes the four section values as plain function
+// arguments, not uniforms declared here — only the shaders that actually
+// use this call it, each with its own uSectioned/uScaleTL/etc. uniforms;
+// shaders that don't reference this function never pay for it (unused
+// GLSL functions are optimized away same as unused uniforms).
+float sectionedScale(vec2 uv, bool sectioned, float base, float tl, float tr, float bl, float br) {
+  if (!sectioned) return base;
+  bool top = uv.y >= 0.5;
+  bool right = uv.x >= 0.5;
+  if (top) return right ? tr : tl;
+  return right ? br : bl;
+}
 `
 
 export interface RenderTransform {
