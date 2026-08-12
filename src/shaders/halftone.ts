@@ -6,8 +6,8 @@ import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_
 // out of scope here.
 //
 // QA pass — sectioned-scale toggle (sectionedScale.ts, shared with ASCII/
-// Pixelated/Dither): canvas splits into a fixed 2x2 grid, each quadrant
-// using its own dot pitch instead of one global one.
+// Pixelated/Dither): canvas splits into a rows x cols grid, each section's
+// dot pitch interpolated between a low/high pair instead of one global value.
 const CELLS_ACROSS_RANGE = { min: 10, max: 200, step: 1, default: 60 }
 
 export const halftoneShader: ShaderModule = {

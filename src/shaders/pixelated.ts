@@ -18,8 +18,9 @@ import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_
 // duotone recoloring reads its luminance, so the two compose naturally.
 //
 // QA pass — sectioned-scale toggle (sectionedScale.ts, shared with ASCII/
-// Halftone/Dither): canvas splits into a fixed 2x2 grid, each quadrant
-// using its own block size instead of one global one.
+// Halftone/Dither): canvas splits into a rows x cols grid, each section's
+// block size interpolated between a low/high pair instead of one global
+// value.
 const CELLS_ACROSS_RANGE = { min: 4, max: 300, step: 1, default: 60 }
 
 export const pixelatedShader: ShaderModule = {

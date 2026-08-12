@@ -7,8 +7,9 @@ import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_
 // cells across.
 //
 // QA pass — sectioned-scale toggle (sectionedScale.ts, shared with ASCII/
-// Halftone/Pixelated): canvas splits into a fixed 2x2 grid, each quadrant
-// using its own matrix scale instead of one global one.
+// Halftone/Pixelated): canvas splits into a rows x cols grid, each
+// section's matrix scale interpolated between a low/high pair instead of
+// one global value.
 const CELLS_ACROSS_RANGE = { min: 20, max: 400, step: 1, default: 120 }
 
 export const ditherShader: ShaderModule = {
