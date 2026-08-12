@@ -323,94 +323,124 @@ function App() {
 
   return (
     <div className="app">
-      <header className="toolbar">
+      <aside className="sidebar">
         <h1>Lumeris Brand Tool</h1>
-        <label className="size-select">
-          Canvas size
-          <select value={sizeId} onChange={(e) => setSizeId(e.target.value)}>
-            {CANVAS_SIZES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label} ({s.width}×{s.height})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="upload">
-          Upload image
-          <input type="file" accept="image/*" onChange={handleFileInput} />
-        </label>
-        <label className="zoom-control">
-          Zoom
-          <input
-            type="range"
-            min={1}
-            max={4}
-            step={0.01}
-            value={clampedFit.zoom}
-            disabled={!imageSize}
-            onChange={handleZoomChange}
-          />
-        </label>
-        <label className="preset-select">
-          Preset
-          <select value={presetId} onChange={handlePresetChange}>
-            <option value="" disabled>
-              Choose a look…
-            </option>
-            {PRESETS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="shader-select">
-          Shader
-          <select value={shader.id} onChange={handleShaderChange}>
-            {SHADER_MODULES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="vector-select">
-          Vector
-          <select value={vector.id} onChange={handleVectorChange}>
-            {allowedVectors.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {vector.id !== 'none' && (
-          <button type="button" onClick={handleShuffleVector}>
-            Shuffle
-          </button>
-        )}
-        <button type="button" onClick={handleRandomize}>
-          Randomize
-        </button>
-        <button type="button" onClick={handleReset}>
-          Reset
-        </button>
-        <button type="button" onClick={() => void handleCopyLink()}>
-          {copyLinkLabel}
-        </button>
-        <button type="button" disabled={!imageSize} onClick={() => void handleExportPng()}>
-          Export PNG
-        </button>
-        <button
-          type="button"
-          disabled={!imageSize || isEncodingAvif}
-          onClick={() => void handleExportAvif()}
-        >
-          {isEncodingAvif ? 'Encoding AVIF…' : 'Export AVIF'}
-        </button>
-      </header>
-      <ParamControls schema={shader.uniformSchema} values={shaderValues} onChange={handleParamChange} />
-      <ParamControls schema={vector.uniformSchema} values={vectorValues} onChange={handleVectorParamChange} />
+
+        <details className="panel-section" open>
+          <summary>Image</summary>
+          <div className="panel-body">
+            <label className="size-select">
+              Canvas size
+              <select value={sizeId} onChange={(e) => setSizeId(e.target.value)}>
+                {CANVAS_SIZES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label} ({s.width}×{s.height})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="upload">
+              Upload image
+              <input type="file" accept="image/*" onChange={handleFileInput} />
+            </label>
+            <label className="zoom-control">
+              Zoom
+              <input
+                type="range"
+                min={1}
+                max={4}
+                step={0.01}
+                value={clampedFit.zoom}
+                disabled={!imageSize}
+                onChange={handleZoomChange}
+              />
+            </label>
+          </div>
+        </details>
+
+        <details className="panel-section" open>
+          <summary>Shader</summary>
+          <div className="panel-body">
+            <label className="shader-select">
+              Shader
+              <select value={shader.id} onChange={handleShaderChange}>
+                {SHADER_MODULES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <ParamControls schema={shader.uniformSchema} values={shaderValues} onChange={handleParamChange} />
+          </div>
+        </details>
+
+        <details className="panel-section">
+          <summary>Vector</summary>
+          <div className="panel-body">
+            <label className="vector-select">
+              Vector
+              <select value={vector.id} onChange={handleVectorChange}>
+                {allowedVectors.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {vector.id !== 'none' && (
+              <button type="button" onClick={handleShuffleVector}>
+                Shuffle
+              </button>
+            )}
+            <ParamControls schema={vector.uniformSchema} values={vectorValues} onChange={handleVectorParamChange} />
+          </div>
+        </details>
+
+        <details className="panel-section">
+          <summary>Look</summary>
+          <div className="panel-body">
+            <label className="preset-select">
+              Preset
+              <select value={presetId} onChange={handlePresetChange}>
+                <option value="" disabled>
+                  Choose a look…
+                </option>
+                {PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={handleRandomize}>
+              Randomize
+            </button>
+            <button type="button" onClick={handleReset}>
+              Reset
+            </button>
+          </div>
+        </details>
+
+        <details className="panel-section">
+          <summary>Export &amp; share</summary>
+          <div className="panel-body">
+            <button type="button" onClick={() => void handleCopyLink()}>
+              {copyLinkLabel}
+            </button>
+            <button type="button" disabled={!imageSize} onClick={() => void handleExportPng()}>
+              Export PNG
+            </button>
+            <button
+              type="button"
+              disabled={!imageSize || isEncodingAvif}
+              onClick={() => void handleExportAvif()}
+            >
+              {isEncodingAvif ? 'Encoding AVIF…' : 'Export AVIF'}
+            </button>
+          </div>
+        </details>
+      </aside>
       <main className="canvas-stage" onDrop={handleDrop} onDragOver={handleDragOver}>
         <div className="canvas-frame" style={{ aspectRatio: `${size.width} / ${size.height}` }}>
           <canvas
