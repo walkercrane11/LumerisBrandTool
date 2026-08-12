@@ -17,6 +17,7 @@ import {
   type VectorModule,
 } from './vectors'
 import { ParamControls } from './ParamControls'
+import { EditableSlider } from './EditableSlider'
 import { VectorLayer } from './VectorLayer'
 import { exportFilename } from './exportFilename'
 import { buildState, decodeStateFromHash, encodeStateToHash, resolveState, resolvePresetLook } from './state'
@@ -178,8 +179,8 @@ function App() {
     }
   }
 
-  const handleZoomChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setFit({ ...clampedFit, zoom: Number(e.target.value) })
+  const handleZoomChange = (zoom: number) => {
+    setFit({ ...clampedFit, zoom })
   }
 
   const handleShaderChange = (e: ChangeEvent<HTMLSelectElement>) => {
@@ -345,12 +346,11 @@ function App() {
             </label>
             <label className="zoom-control">
               Zoom
-              <input
-                type="range"
+              <EditableSlider
+                value={clampedFit.zoom}
                 min={1}
                 max={4}
                 step={0.01}
-                value={clampedFit.zoom}
                 disabled={!imageSize}
                 onChange={handleZoomChange}
               />

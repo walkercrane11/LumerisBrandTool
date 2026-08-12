@@ -1,6 +1,6 @@
-import type { ChangeEvent } from 'react'
 import type { UniformDef, UniformValue } from './shaders'
 import { BRAND_PALETTE } from './colors'
+import { EditableSlider } from './EditableSlider'
 
 interface ParamControlsProps {
   schema: UniformDef[]
@@ -42,22 +42,17 @@ function UniformControl({
 }) {
   switch (def.type) {
     case 'float':
-    case 'int': {
-      const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-        const raw = Number(e.target.value)
-        onChange(def.key, def.type === 'int' ? Math.round(raw) : raw)
-      }
+    case 'int':
       return (
-        <input
-          type="range"
-          min={def.min}
-          max={def.max}
-          step={def.step ?? (def.type === 'int' ? 1 : 0.01)}
+        <EditableSlider
           value={Number(value)}
-          onChange={handleChange}
+          min={def.min ?? 0}
+          max={def.max ?? 1}
+          step={def.step ?? (def.type === 'int' ? 1 : 0.01)}
+          integer={def.type === 'int'}
+          onChange={(next) => onChange(def.key, next)}
         />
       )
-    }
     case 'bool':
       return (
         <input

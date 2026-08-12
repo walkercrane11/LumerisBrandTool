@@ -45,7 +45,14 @@ body {
 .panel-section {
   border: 1px solid rgba(128, 128, 128, 0.25);
   border-radius: 8px;
-  overflow: hidden;
+  /* No overflow:hidden here — it conflicts with the browser's native
+     <details> open/close auto-sizing (confirmed empirically: with it set,
+     the element's computed auto height stayed stuck at a stale, too-short
+     value instead of growing to fit its content, clipping whatever
+     didn't fit — the Zoom slider row, invisibly, since nothing overflowed
+     the viewport, it was just cut off inside its own collapsed parent).
+     border-radius is applied to summary/panel-body directly instead, so
+     corners still round correctly without relying on parent clipping. */
 }
 
 .panel-section summary {
@@ -58,6 +65,11 @@ body {
   align-items: center;
   gap: 8px;
   user-select: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.panel-section:not([open]) summary {
+  border-radius: 8px;
 }
 
 .panel-section summary::-webkit-details-marker {
@@ -108,7 +120,6 @@ body {
 .shader-select select,
 .vector-select select,
 .preset-select select,
-.zoom-control input,
 .upload input {
   width: 100%;
 }
@@ -126,8 +137,57 @@ body {
   gap: 6px;
 }
 
-.param-control input[type='range'] {
+/* QA pass, reference/slider-reference.png — every slider (Zoom in
+   .zoom-control, plus every shader/vector float/int param here) shows its
+   value and lets you click it to type an exact number. EditableSlider.tsx
+   owns the behavior; this is just the layout: range input flexes to fill
+   the row, the value sits at a fixed width on the right so it doesn't
+   jump around as digit count changes while dragging. */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
+}
+
+.slider-row input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.slider-value,
+.slider-value-input {
+  min-width: 3em;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+}
+
+.slider-value {
+  background: none;
+  border: 1px solid transparent;
+  color: inherit;
+  cursor: text;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.slider-value:hover:not(:disabled) {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.slider-value:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.slider-value-input {
+  background: transparent;
+  border: 1px solid rgba(128, 128, 128, 0.5);
+  border-radius: 4px;
+  padding: 1px 3px;
+  color: inherit;
 }
 
 .swatch-picker {
