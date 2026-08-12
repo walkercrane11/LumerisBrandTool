@@ -1,34 +1,50 @@
 import type { ShaderModule } from './types'
+import { createPatternAtlasSource } from './patternAtlas'
+import pattern1Lightest from './patterns/1-lightest.svg?raw'
+import pattern2Light from './patterns/2-light.svg?raw'
+import pattern3MidLight from './patterns/3-mid-light.svg?raw'
+import pattern4MidDark from './patterns/4-mid-dark.svg?raw'
+import pattern5Dark from './patterns/5-dark.svg?raw'
 
 // SPEC.md §4.2 — "same mechanism, shape atlas instead of glyphs." Revised
-// twice after review against reference/pattern.png (Walker, 2026-08-10):
+// several times after review against reference/pattern.png (Walker,
+// 2026-08-10), then again per Walker's later QA passes:
 //
 // 1st revision: discrete tonal bands, each filled with a categorically
 // DIFFERENT pattern (checkerboard, dots, diagonal stripes, small squares,
-// solid), light to dark — not one shape scaling continuously by size.
-// Dropped the #17 atlas approach (these patterns tile at their own
-// frequency, independent of luminance-sampling resolution) in favor of
-// procedural GLSL — no texture assets needed.
+// solid), light to dark. Dropped the #17 atlas approach (these patterns
+// tile at their own frequency, independent of luminance-sampling
+// resolution) in favor of procedural GLSL — no texture assets needed.
 //
-// 2nd revision — two more notes from Walker on the 1st pass:
-// - "strict grid": band assignment now samples luminance once per cell
-//   (mosaic-style, like Halftone/Dither/ASCII), not per-pixel. Band edges
-//   are blocky/grid-aligned now, not following the photo's smooth contours.
-// - "pattern AND color drive the value scale": each band gets its own
-//   bg/fg color pair (10 colors total) instead of one shared fg/bg —
-//   closer to the reference comp's actual richness (it uses roughly two
-//   colors per tonal region, not one accent color throughout).
+// 2nd revision: "strict grid" (one luminance sample/band per cell,
+// mosaic-style) and "pattern AND color drive the value scale" (each band
+// gets its own bg/fg color pair).
 //
-// 3rd revision (QA pass) — Walker asked for a finer top-end grid (cells
-// across max 80 -> 200) and two more pattern elements. No reference comp
-// for the two new ones (unlike everything else in this file), so picked
-// from a curated set Walker approved: triangles and herringbone. Inserted
-// as bands 5 and 6, pushing the former band5 (solid) to band7 — the other
-// four keep their existing keys/colors untouched.
+// 3rd revision (QA pass): finer top-end grid, plus triangles and
+// herringbone bands (7 total).
+//
+// 4th revision (this one) — Walker supplied 5 custom SVG pattern assets
+// (src/shaders/patterns/) to fully replace the procedural bands 1-5, with
+// band 6 as a flat solid fill for the darkest tonal range (6 bands total,
+// down from 7 — no more herringbone/7th tier). Unlike the earlier
+// procedural functions, these assets carry their own baked-in colors
+// (brand-palette hex values) rather than being tinted through a per-band
+// bg/fg picker, so the color pickers for bands 1-5 are gone; only band 6
+// (solid, no asset) keeps one. Rasterized into a texture atlas at
+// shader-compile time (patternAtlas.ts) — same "cell-based, sample an
+// atlas" family as ASCII, just SVG-sourced instead of glyph-sourced.
+const PATTERN_SVGS = [pattern1Lightest, pattern2Light, pattern3MidLight, pattern4MidDark, pattern5Dark]
+
 export const patternFillShader: ShaderModule = {
   id: 'pattern-fill',
   label: 'Pattern fill',
   passes: 1,
+  atlas: {
+    cols: PATTERN_SVGS.length,
+    rows: 1,
+    cellCount: PATTERN_SVGS.length,
+    createSource: createPatternAtlasSource(PATTERN_SVGS),
+  },
   uniformSchema: [
     {
       key: 'cellsAcross',
@@ -64,107 +80,31 @@ export const patternFillShader: ShaderModule = {
       type: 'bool',
       default: false,
     },
-    // SPEC.md §9 — brand palette landed (colors.ts). Light bands stay
-    // high-key (cream/yellow, sage/olive), middle bands carry the two
-    // vivid accents (red, blue) for visual interest, dark bands move
-    // through the earthy/moody colors down to near-black at band 7 (whose
-    // bg is barely visible — that band's coverage is always 1.0, see
-    // fragSource — but still set to something reasonable).
-    { key: 'band1Bg', label: 'Band 1 (checker) bg', type: 'color', default: '#FFFAE9' },
-    { key: 'band1Fg', label: 'Band 1 (checker) fg', type: 'color', default: '#FEFB53' },
-    { key: 'band2Bg', label: 'Band 2 (dots) bg', type: 'color', default: '#CBCF92' },
-    { key: 'band2Fg', label: 'Band 2 (dots) fg', type: 'color', default: '#8A8800' },
-    { key: 'band3Bg', label: 'Band 3 (stripes) bg', type: 'color', default: '#FF453B' },
-    { key: 'band3Fg', label: 'Band 3 (stripes) fg', type: 'color', default: '#FFFAE9' },
-    { key: 'band4Bg', label: 'Band 4 (squares) bg', type: 'color', default: '#1836F0' },
-    { key: 'band4Fg', label: 'Band 4 (squares) fg', type: 'color', default: '#FEFB53' },
-    { key: 'band5Bg', label: 'Band 5 (triangles) bg', type: 'color', default: '#433209' },
-    { key: 'band5Fg', label: 'Band 5 (triangles) fg', type: 'color', default: '#CBCF92' },
-    { key: 'band6Bg', label: 'Band 6 (herringbone) bg', type: 'color', default: '#0E1F6A' },
-    { key: 'band6Fg', label: 'Band 6 (herringbone) fg', type: 'color', default: '#530E06' },
-    { key: 'band7Bg', label: 'Band 7 (solid) bg', type: 'color', default: '#212100' },
-    { key: 'band7Fg', label: 'Band 7 (solid) fg', type: 'color', default: '#081011' },
+    // Band 6 (darkest, solid) is the only band without a baked-in asset
+    // color — bands 1-5 render their SVGs as designed.
+    { key: 'band6Color', label: 'Band 6 (solid) color', type: 'color', default: '#081011' },
   ],
-  // Two coordinate grids, both canvas-relative per §3.3:
-  // - cellCoord (cellsAcross resolution): the STRICT grid. One luminance
-  //   sample and one band decision per cell — the whole cell renders
-  //   uniformly, mosaic-style.
-  // - patternCoord (cellsAcross * PATTERN_SUBDIV): finer, purely for the
-  //   pattern's own texture, so each band cell shows several repeats of
-  //   its pattern (a mini checkerboard, a few dots, etc.) rather than at
-  //   most one shape per cell.
+  // One coordinate grid now, canvas-relative per §3.3: cellCoord
+  // (cellsAcross resolution) drives both the luminance sample/band
+  // decision AND the pattern placement — one atlas motif fills each strict
+  // cell exactly, no subdivision. (Earlier revision sampled the atlas at a
+  // finer subdivided grid so each cell showed several repeats of its
+  // pattern; Walker's QA on that: he wants one instance per cell, not a
+  // packed 4x4 of it.)
   //
-  // rotationJitter rotates patternCoord by a fixed angle (not a per-cell
-  // random jitter) — randomly rotating a tiling pattern per-cell breaks it
-  // into visible seams, so this is a uniform "pattern angle" instead.
+  // rotationJitter rotates the pattern coordinate by a fixed angle (not a
+  // per-cell random jitter) — randomly rotating a tiling pattern per-cell
+  // breaks it into visible seams, so this is a uniform "pattern angle"
+  // instead.
   fragSource: `
 uniform float uCellsAcross;
 uniform float uContrast;
 uniform float uRotationJitter;
 uniform bool uInvert;
-uniform vec3 uBand1Bg;
-uniform vec3 uBand1Fg;
-uniform vec3 uBand2Bg;
-uniform vec3 uBand2Fg;
-uniform vec3 uBand3Bg;
-uniform vec3 uBand3Fg;
-uniform vec3 uBand4Bg;
-uniform vec3 uBand4Fg;
-uniform vec3 uBand5Bg;
-uniform vec3 uBand5Fg;
-uniform vec3 uBand6Bg;
-uniform vec3 uBand6Fg;
-uniform vec3 uBand7Bg;
-uniform vec3 uBand7Fg;
+uniform vec3 uBand6Color;
 
-const float BANDS = 7.0;
-const float PATTERN_SUBDIV = 4.0;
-
-float checkerPattern(vec2 p) {
-  vec2 cell = floor(p);
-  return mod(cell.x + cell.y, 2.0);
-}
-
-float dotsPattern(vec2 p) {
-  vec2 local = fract(p) - 0.5;
-  return 1.0 - smoothstep(0.15, 0.22, length(local));
-}
-
-float stripesPattern(vec2 p) {
-  float diag = p.x + p.y;
-  return step(0.5, fract(diag));
-}
-
-float smallSquaresPattern(vec2 p) {
-  vec2 local = fract(p * 2.0) - 0.5;
-  vec2 d = abs(local);
-  return 1.0 - step(0.32, max(d.x, d.y));
-}
-
-// One upward-pointing triangle per cell (apex at top-center, base along
-// the bottom edge). A single diagonal split per cell reads as plain
-// stripes once tiled (checked empirically — an earlier alternating-
-// diagonal-split version was visually indistinguishable from
-// stripesPattern); a self-contained triangle silhouette per cell doesn't
-// have that ambiguity.
-float trianglesPattern(vec2 p) {
-  vec2 local = fract(p);
-  float halfWidthAtHeight = 0.5 * (1.0 - local.y);
-  return step(abs(local.x - 0.5), halfWidthAtHeight);
-}
-
-// Herringbone weave approximation: space divides into 2x2 blocks, each
-// block using one of two opposite diagonal stripe directions (forward or back slash),
-// picked by block parity — reads as a woven zigzag rather than a literal
-// mitered herringbone join, but distinct from the single-direction stripes
-// pattern and from the triangle tiling above.
-float herringbonePattern(vec2 p) {
-  vec2 blockCell = floor(p * 0.5);
-  float blockParity = mod(blockCell.x + blockCell.y, 2.0);
-  float diagA = step(0.5, fract(p.x + p.y));
-  float diagB = step(0.5, fract(p.x - p.y));
-  return mix(diagA, diagB, blockParity);
-}
+const float BANDS = 6.0;
+const float PATTERN_COUNT = 5.0;
 
 void main() {
   vec2 cellSize = vec2(1.0 / uCellsAcross, uCanvasAspect / uCellsAcross);
@@ -181,46 +121,22 @@ void main() {
 
   float band = min(floor(density * BANDS), BANDS - 1.0);
 
-  vec2 patternRaw = (vUv / cellSize) * PATTERN_SUBDIV;
+  vec2 patternRaw = vUv / cellSize;
   float angle = uRotationJitter * radians(45.0);
   float ca = cos(angle);
   float sa = sin(angle);
   vec2 p = mat2(ca, sa, -sa, ca) * patternRaw;
 
-  float coverage;
-  vec3 bandBg;
-  vec3 bandFg;
-  if (band < 0.5) {
-    coverage = checkerPattern(p);
-    bandBg = uBand1Bg;
-    bandFg = uBand1Fg;
-  } else if (band < 1.5) {
-    coverage = dotsPattern(p);
-    bandBg = uBand2Bg;
-    bandFg = uBand2Fg;
-  } else if (band < 2.5) {
-    coverage = stripesPattern(p);
-    bandBg = uBand3Bg;
-    bandFg = uBand3Fg;
-  } else if (band < 3.5) {
-    coverage = smallSquaresPattern(p);
-    bandBg = uBand4Bg;
-    bandFg = uBand4Fg;
-  } else if (band < 4.5) {
-    coverage = trianglesPattern(p);
-    bandBg = uBand5Bg;
-    bandFg = uBand5Fg;
-  } else if (band < 5.5) {
-    coverage = herringbonePattern(p);
-    bandBg = uBand6Bg;
-    bandFg = uBand6Fg;
+  vec3 color;
+  if (band < PATTERN_COUNT - 0.5) {
+    vec2 local = fract(p);
+    vec2 atlasUv = (vec2(band, 0.0) + local) / vec2(uAtlasCols, uAtlasRows);
+    color = texture(uAtlas, atlasUv).rgb;
   } else {
-    coverage = 1.0;
-    bandBg = uBand7Bg;
-    bandFg = uBand7Fg;
+    color = uBand6Color;
   }
 
-  fragColor = vec4(mix(bandBg, bandFg, coverage), sampled.a);
+  fragColor = vec4(color, sampled.a);
 }
 `,
 }
