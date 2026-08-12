@@ -145,6 +145,10 @@ body {
   cursor: pointer;
 }
 
+.swatch[data-group-start='true'] {
+  margin-left: 8px;
+}
+
 .swatch[data-selected='true'] {
   outline: 2px solid currentColor;
   outline-offset: 2px;

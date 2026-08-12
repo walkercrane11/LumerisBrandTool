@@ -76,13 +76,16 @@ function UniformControl({
           ))}
         </select>
       )
-    case 'color':
+    case 'color': {
       // SPEC.md §4.1 — locked brand palette, not an arbitrary color input.
       // Was a native <input type="color"> placeholder until the palette
       // landed (SPEC.md §9); now the real swatch-picker the spec calls for.
+      // extraSwatches (e.g. Riso's traditional CMY) render after the brand
+      // set, with a small visual break so the two groups read as distinct.
+      const swatches = [...BRAND_PALETTE, ...(def.extraSwatches ?? [])]
       return (
         <div className="swatch-picker" role="radiogroup">
-          {BRAND_PALETTE.map((hex) => (
+          {swatches.map((hex, i) => (
             <button
               key={hex}
               type="button"
@@ -91,11 +94,13 @@ function UniformControl({
               aria-label={hex}
               className="swatch"
               data-selected={String(value).toLowerCase() === hex.toLowerCase()}
+              data-group-start={i === BRAND_PALETTE.length ? 'true' : undefined}
               style={{ background: hex }}
               onClick={() => onChange(def.key, hex)}
             />
           ))}
         </div>
       )
+    }
   }
 }
