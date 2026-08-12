@@ -1,9 +1,16 @@
 import type { ShaderModule } from './types'
+import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_EXPR } from './sectionedScale'
 
 // SPEC.md §4.3 — decided: ordered (Bayer) dithering only, no error-diffusion
 // (that's inherently sequential, can't be a per-pixel fragment shader).
 // Params per SPEC.md §4.2: matrix type, levels, palette (fg/bg), contrast,
 // cells across.
+//
+// QA pass — sectioned-scale toggle (sectionedScale.ts, shared with ASCII/
+// Halftone/Pixelated): canvas splits into a fixed 2x2 grid, each quadrant
+// using its own matrix scale instead of one global one.
+const CELLS_ACROSS_RANGE = { min: 20, max: 400, step: 1, default: 120 }
+
 export const ditherShader: ShaderModule = {
   id: 'dither',
   label: 'Dither',
@@ -14,11 +21,10 @@ export const ditherShader: ShaderModule = {
       label: 'Matrix scale',
       type: 'float',
       unit: 'cellsAcross',
-      min: 20,
-      max: 400,
-      step: 1,
-      default: 120,
+      ...CELLS_ACROSS_RANGE,
+      visibleWhen: { key: 'sectioned', equals: false },
     },
+    ...sectionedScaleUniforms(CELLS_ACROSS_RANGE),
     {
       key: 'matrixType',
       label: 'Matrix',
@@ -63,6 +69,7 @@ export const ditherShader: ShaderModule = {
   // color between bg and fg.
   fragSource: `
 uniform float uCellsAcross;
+${SECTIONED_SCALE_GLSL_UNIFORMS}
 uniform int uMatrixType; // 0 = bayer2, 1 = bayer4, 2 = bayer8
 uniform int uLevels;
 uniform float uContrast;
@@ -103,7 +110,8 @@ float bayerThreshold(vec2 cellCoord) {
 }
 
 void main() {
-  vec2 cellSize = vec2(1.0 / uCellsAcross, uCanvasAspect / uCellsAcross);
+  float cellsAcross = ${SECTIONED_SCALE_EXPR};
+  vec2 cellSize = vec2(1.0 / cellsAcross, uCanvasAspect / cellsAcross);
   vec2 cellCoord = floor(vUv / cellSize);
   vec2 cellCenter = (cellCoord + 0.5) * cellSize;
 

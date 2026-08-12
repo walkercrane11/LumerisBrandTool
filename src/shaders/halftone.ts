@@ -1,8 +1,15 @@
 import type { ShaderModule } from './types'
+import { sectionedScaleUniforms, SECTIONED_SCALE_GLSL_UNIFORMS, SECTIONED_SCALE_EXPR } from './sectionedScale'
 
 // SPEC.md §4.2 — dot pitch, dot shape (circle/square/line), screen angle,
 // contrast, fg/bg. Multi-angle CMYK variant is explicitly "optional" —
 // out of scope here.
+//
+// QA pass — sectioned-scale toggle (sectionedScale.ts, shared with ASCII/
+// Pixelated/Dither): canvas splits into a fixed 2x2 grid, each quadrant
+// using its own dot pitch instead of one global one.
+const CELLS_ACROSS_RANGE = { min: 10, max: 200, step: 1, default: 60 }
+
 export const halftoneShader: ShaderModule = {
   id: 'halftone',
   label: 'Halftone',
@@ -13,11 +20,10 @@ export const halftoneShader: ShaderModule = {
       label: 'Dot pitch',
       type: 'float',
       unit: 'cellsAcross',
-      min: 10,
-      max: 200,
-      step: 1,
-      default: 60,
+      ...CELLS_ACROSS_RANGE,
+      visibleWhen: { key: 'sectioned', equals: false },
     },
+    ...sectionedScaleUniforms(CELLS_ACROSS_RANGE),
     {
       key: 'dotShape',
       label: 'Shape',
@@ -64,6 +70,7 @@ export const halftoneShader: ShaderModule = {
   // angle means.
   fragSource: `
 uniform float uCellsAcross;
+${SECTIONED_SCALE_GLSL_UNIFORMS}
 uniform int uDotShape; // 0 = circle, 1 = square, 2 = line
 uniform float uScreenAngle;
 uniform float uContrast;
@@ -71,13 +78,14 @@ uniform vec3 uFg;
 uniform vec3 uBg;
 
 void main() {
+  float cellsAcross = ${SECTIONED_SCALE_EXPR};
   float rad = radians(uScreenAngle);
   float c = cos(rad);
   float s = sin(rad);
   mat2 rot = mat2(c, s, -s, c);
   mat2 invRot = mat2(c, -s, s, c);
 
-  vec2 scale = vec2(uCellsAcross, uCellsAcross / uCanvasAspect);
+  vec2 scale = vec2(cellsAcross, cellsAcross / uCanvasAspect);
   vec2 pre = vUv * scale;
   vec2 rotated = rot * pre;
 

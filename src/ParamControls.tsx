@@ -13,9 +13,14 @@ interface ParamControlsProps {
 export function ParamControls({ schema, values, onChange }: ParamControlsProps) {
   if (schema.length === 0) return null
 
+  const visibleSchema = schema.filter(
+    (def) => !def.visibleWhen || values[def.visibleWhen.key] === def.visibleWhen.equals,
+  )
+  if (visibleSchema.length === 0) return null
+
   return (
     <div className="param-controls">
-      {schema.map((def) => (
+      {visibleSchema.map((def) => (
         <label key={def.key} className="param-control">
           {def.label}
           <UniformControl def={def} value={values[def.key]} onChange={onChange} />

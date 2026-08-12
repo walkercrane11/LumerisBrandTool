@@ -11,6 +11,13 @@ export interface UniformDef {
   step?: number
   options?: string[] // required when type is 'enum'
   default: number | string | boolean
+  // QA pass (sectioned-scale toggle, Halftone/ASCII/Pixelated/Dither) —
+  // only render this control when another param equals a given value.
+  // Keeps mutually-exclusive alternatives (single scale vs. four
+  // per-section scales) from both showing at once. Optional and unused by
+  // most shaders/vectors — ParamControls.tsx just always-shows a param
+  // that doesn't declare one, same as before this existed.
+  visibleWhen?: { key: string; equals: UniformValue }
 }
 
 export type UniformValue = number | string | boolean
