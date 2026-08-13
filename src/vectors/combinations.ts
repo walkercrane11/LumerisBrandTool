@@ -3,7 +3,7 @@
 // here; allowedVectorIds prepends it unconditionally.
 const SANCTIONED_VECTOR_IDS: Record<string, string[]> = {
   none: ['dot', 'square'],
-  pixelated: [],
+  pixelated: ['scribbles'],
   dither: ['scribbles'],
   halftone: ['scribbles'],
   ascii: ['scribbles'],
