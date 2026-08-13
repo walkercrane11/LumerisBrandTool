@@ -99,12 +99,12 @@ body {
   display: inline-flex;
   align-self: flex-start;
   color: var(--color-text);
-  padding: 44px 0;
+  padding: 32px 0;
 }
 
 .brand-logo svg {
   display: block;
-  width: 200px;
+  width: 175px;
   height: auto;
 }
 
