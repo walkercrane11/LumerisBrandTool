@@ -198,7 +198,7 @@ Of the 21 pairings (7 shader states including `none`, §4.1 × 3 vector styles),
 | Shader | Dot | Square | Scribbles |
 |---|---|---|---|
 | `none` (untreated image) | ✅ | ✅ | ❌ |
-| Pixelated | ❌ | ❌ | ❌ |
+| Pixelated | ❌ | ❌ | ✅ |
 | Dither | ❌ | ❌ | ✅ |
 | Halftone | ❌ | ❌ | ✅ |
 | ASCII | ❌ | ❌ | ✅ |
@@ -206,9 +206,8 @@ Of the 21 pairings (7 shader states including `none`, §4.1 × 3 vector styles),
 | Riso | ✅ | ✅ | ❌ |
 
 Notes:
-- **Pixelated never gets a vector overlay.** It has zero sanctioned combinations — always used alone.
 - **Dot and Square are Riso-only** (or over an untreated image). Geometric vector reads clean against Riso's misregistration/grain or against raw photography; it competes with the cell-based/textured shaders.
-- **Scribbles pair with the four cell/pattern shaders** (Dither, Halftone, ASCII, Pattern fill) — organic overlay against textured treatments. They do not pair with Riso or `none`.
+- **Scribbles pair with the five cell/pattern shaders** (Pixelated, Dither, Halftone, ASCII, Pattern fill) — organic overlay against textured treatments. They do not pair with Riso or `none`. Pixelated was originally excluded entirely ("never gets a vector overlay") — revised per Walker's QA: that was a miscommunication, not an intended constraint; Scribbles is sanctioned for Pixelated same as the other four cell-based shaders.
 - No vector layer at all (image + shader only, no overlay) is always valid regardless of shader — this matrix only governs which vector style may be *added* on top of which shader.
 
 ---
