@@ -33,7 +33,9 @@ No compute backend. Rationale:
 - AVIF encoding runs in WASM on the client (§6.2), so the one format that might have justified a server does not.
 - A studio shipping a tool for a client team should not also be signing up to operate a service. Zero backend means zero ops, zero cost, zero uptime obligation.
 
-**Deploy:** Cloudflare Pages behind Cloudflare Access. Client team authenticates with work email; no user management to build. Versioned canonical URL so the studio can ship updates without redistributing anything.
+**Deploy:** Vercel — changed from the originally planned Cloudflare Pages (Walker, Phase 5 planning, 2026-08-13). The app itself needed no code changes for the switch: it's a fully static Vite build with zero Cloudflare-specific bindings, config, or Pages Functions to port. `vercel.json` sets COOP/COEP headers so `@jsquash/avif`'s multi-threaded WASM encoder can actually use its multi-threaded path (it already auto-detects and falls back to single-threaded without them, so this is a performance win, not a correctness requirement).
+
+**Open, unlike the Cloudflare plan:** the original "Client team authenticates with work email; no user management to build" was Cloudflare Access doing that job for free. Vercel has no equivalent enabled by default — without deciding on something (Vercel's own Password Protection/SSO on a Pro/Enterprise plan, or another mechanism), the deployed tool is publicly reachable by anyone with the URL. Tracked in §9 until decided.
 
 ### 2.2 Canvas renders at true export dimensions, always
 
@@ -186,7 +188,7 @@ Three styles:
 
 **Scribble asset pipeline** — decided:
 - ~10–20 assets, produced by Holden Ellis as art-directed SVGs. First 6 delivered as varied-dimension SVGs, one `<path>` each with a baked-in fill color.
-- Bundled inline in the build (Vite `?raw` imports), versioned with the app. Updating the set requires a redeploy (low-friction on Cloudflare Pages).
+- Bundled inline in the build (Vite `?raw` imports), versioned with the app. Updating the set requires a redeploy (low-friction on Vercel, same as it would've been on Cloudflare Pages — both auto-deploy on push).
 - **Normalization happens in code, not the source files** — revised from "assets must share a common viewBox" after Walker confirmed the delivered assets are varied dimensions and re-exporting them all to one artboard wasn't the right ask. Each asset's own viewBox is read at load time (`vectors/scribbles/assets.ts`) and its longest edge is scaled to a fixed fraction of canvas width at placement time, so "one asset" and another read as comparable sizes without touching the source SVGs.
 
 **Scribbles — placement model revised, no reference comp to check against (unlike Dot/Square).** §5's "seed drives placement" and the schema example below (density/scaleMin/scaleMax scatter) were the original plan, but Walker's actual direction was simpler and more deliberate: not a generated pattern, one or two explicitly-placed instances. "Slot 1" is always active; "slot 2" is gated by an `enableSecond` toggle. Each slot has its own asset picker, `x`/`y` position (0–1 normalized), `rotation` (degrees), and `scale` (multiplies the code-side longest-edge normalization — added after Walker flagged it was missing from the first pass) — all direct user choices, not seed-driven. `color`/`opacity`/`blendMode` are shared across both slots and override each asset's baked-in fill (§4.1 color policy, same as Dot/Square). No seed or randomness involved at all — the one vector style where that's true.
@@ -324,7 +326,7 @@ State object, URL hash encode/decode, named preset library, reset/randomize.
 
 ### Phase 5 — Deploy and handoff
 
-Cloudflare Pages + Access, versioned canonical URL, short Loom walkthrough for the client team.
+Vercel (§2.1 — changed from the originally planned Cloudflare Pages), versioned canonical URL, short Loom walkthrough for the client team. Access-gating mechanism still open — see §9.
 
 ---
 
@@ -360,3 +362,4 @@ Resolved during Phase 0 planning (2026-08-10):
 Still open:
 
 - Input image spec: expected subject matter, resolution floor, color profile.
+- Access gating on Vercel (§2.1) — Cloudflare Access covered this for free in the original plan; Vercel needs an explicit decision (Password Protection/SSO on a paid tier, or another mechanism) or the deployed tool has no access control at all.
