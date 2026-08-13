@@ -92,19 +92,20 @@ body {
    which would otherwise pull this inline-flex span to the sidebar's full
    width; the SVG itself already has its own intrinsic width/height so
    that stretch wouldn't distort it, but flex-start keeps its hover/focus
-   hit area honest (sized to the mark, not the whole sidebar row). Height
-   picked to sit comfortably above the 16px h1 without dwarfing it — the
-   source SVG's own 98x49 native size reads oversized at this width. */
+   hit area honest (sized to the mark, not the whole sidebar row). Padding
+   is on this wrapper, not the svg, so it adds breathing room around the
+   mark instead of stretching into it. */
 .brand-logo {
   display: inline-flex;
   align-self: flex-start;
   color: var(--color-text);
+  padding: 44px 0;
 }
 
 .brand-logo svg {
   display: block;
-  height: 28px;
-  width: auto;
+  width: 200px;
+  height: auto;
 }
 
 .sidebar h1 {
