@@ -12,6 +12,25 @@
    against both cream and near-black, and unlike the reds already used as
    content defaults elsewhere (Square vector, Riso CMY), it doesn't read as
    a warning/danger color on a button. */
+/* QA pass — Figtree (Google Font), self-hosted rather than linked from
+   fonts.googleapis.com: no external request at page load (this runs
+   behind Cloudflare Access for a client, and is a small tool handed to a
+   non-technical team — an extra third-party dependency at runtime isn't
+   worth it for a font). src/fonts/Figtree-Variable.woff2 is the variable
+   font's latin-subset file (single file covers the whole 400-700 weight
+   range this UI uses — regular body text, 600 section headers, default
+   browser-bold h1 — so one @font-face with a weight range, not three
+   separate static files). OFL.txt alongside it is Figtree's license
+   (SIL Open Font License — free to redistribute, no attribution required,
+   included anyway per the license's own recommendation). */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('./fonts/Figtree-Variable.woff2') format('woff2');
+}
+
 :root {
   color-scheme: light dark;
   --color-bg: #fffae9;
@@ -37,7 +56,7 @@
 
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
+  font-family: 'Figtree', system-ui, sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
 }
