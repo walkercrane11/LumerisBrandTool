@@ -87,6 +87,26 @@ body {
   gap: 12px;
 }
 
+/* QA pass — logo above the title (Logo.tsx). align-self:flex-start since
+   .sidebar is a column flex container with the default stretch behavior,
+   which would otherwise pull this inline-flex span to the sidebar's full
+   width; the SVG itself already has its own intrinsic width/height so
+   that stretch wouldn't distort it, but flex-start keeps its hover/focus
+   hit area honest (sized to the mark, not the whole sidebar row). Height
+   picked to sit comfortably above the 16px h1 without dwarfing it — the
+   source SVG's own 98x49 native size reads oversized at this width. */
+.brand-logo {
+  display: inline-flex;
+  align-self: flex-start;
+  color: var(--color-text);
+}
+
+.brand-logo svg {
+  display: block;
+  height: 28px;
+  width: auto;
+}
+
 .sidebar h1 {
   font-size: 16px;
   margin: 0 0 4px;

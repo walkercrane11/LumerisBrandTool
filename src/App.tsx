@@ -18,6 +18,7 @@ import {
 } from './vectors'
 import { ParamControls } from './ParamControls'
 import { EditableSlider } from './EditableSlider'
+import { Logo } from './Logo'
 import { VectorLayer } from './VectorLayer'
 import { exportFilename } from './exportFilename'
 import { buildState, decodeStateFromHash, encodeStateToHash, resolveState, resolvePresetLook } from './state'
@@ -325,7 +326,8 @@ function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <h1>Lumeris Brand Tool</h1>
+        <Logo />
+        <h1>Tom Graphics Generator</h1>
 
         <details className="panel-section" open>
           <summary>Image</summary>
