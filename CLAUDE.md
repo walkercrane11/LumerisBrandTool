@@ -15,7 +15,7 @@ Browser-based brand tool: shader-treated image layer + generated vector overlay 
 - Vite + React + TypeScript
 - Raw WebGL2 for rendering — **no three.js**. Every shader is a fullscreen quad with uniforms; a scene graph adds nothing and complicates the multi-pass path Riso needs.
 - `@jsquash/avif` (WASM) for AVIF encoding, lazy-loaded on first export
-- Deploy: Cloudflare Pages behind Cloudflare Access
+- Deploy: Vercel (changed from the originally planned Cloudflare Pages — see SPEC.md §6 for why and what's still open)
 
 **Do not add dependencies without asking.** This is a small, long-lived tool handed to a non-technical team; every dependency is a maintenance obligation on the studio.
 
